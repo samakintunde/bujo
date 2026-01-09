@@ -8,9 +8,11 @@ It focuses on **speed** (capture fast) and **intentionality** (review often).
 
 ## Philosophy
 
-- **Capture Speed**: `bujo add "meeting"` is faster than switching windows.
-- **Focus**: A TUI interface forces you to process yesterday's unfinished work before starting today (The "Migration").
-- **Local First**: Data lives in a local SQLite database (`~/.bujo.db`).
+- **[File over app](https://stephango.com/file-over-app)**
+- **Speed**
+- **Focus**
+- **Local First**
+- **Git-friendly**
 
 ## Installation
 
@@ -63,7 +65,7 @@ bujo list
 
 ## Data Location
 
-All data is stored in `~/.bujo.db`. You can back this file up or sync it across machines.
+All data is stored in `~/.bujo`
 
 ## License
 
