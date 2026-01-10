@@ -45,13 +45,11 @@ func initializeConfig(cmd *cobra.Command) error {
 		home, err := os.UserHomeDir()
 		cobra.CheckErr(err)
 		viper.AddConfigPath(".")
-		viper.AddConfigPath(filepath.Join(home, ".config", ".bujo"))
+		viper.AddConfigPath(filepath.Join(home, ".config", "bujo"))
 		viper.SetConfigName("config")
 		viper.SetConfigType("yaml")
 
 		viper.SetDefault("path", filepath.Join(home, ".bujo"))
-		viper.SetDefault("db.path", filepath.Join(home, ".bujo", "db"))
-		viper.SetDefault("journal.path", filepath.Join(home, ".bujo", "journal"))
 	}
 
 	if err := viper.ReadInConfig(); err != nil {

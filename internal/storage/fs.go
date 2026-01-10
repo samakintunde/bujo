@@ -6,32 +6,38 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/samakintunde/bujo-cli/internal/config"
 )
 
 type FSStore struct {
-	BasePath string
+	Root string
 }
 
-func NewFSStore(cfg config.JournalConfig) (*FSStore, error) {
-	return &FSStore{BasePath: cfg.Path}, nil
+func NewFSStore(basePath string) (*FSStore, error) {
+	return &FSStore{Root: basePath}, nil
 }
 
-func (fs *FSStore) GetTodayPath() (string, error) {
-	date := time.Now().Format(time.DateOnly)
+func (fs *FSStore) GetDayPath(dateStr string) (string, error) {
+	parsedDate, err := time.Parse(time.DateOnly, dateStr)
+	if err != nil {
+		return "", err
+	}
+	date := parsedDate.Format(time.DateOnly)
 	dateParts := strings.Split(date, "-")
 	year := dateParts[0]
 	month := dateParts[1]
 	fileName := fmt.Sprintf("%s.md", date)
 
-	dirPath := filepath.Join(fs.BasePath, year, month)
+	dirPath := filepath.Join(fs.Root, year, month)
 
-	if err := os.MkdirAll(dirPath, 0755); err != nil {
+	if err := fs.EnsureDirectory(dirPath); err != nil {
 		return "", err
 	}
 
 	return filepath.Join(dirPath, fileName), nil
+}
+
+func (fs *FSStore) GetTodayPath() (string, error) {
+	return fs.GetDayPath(time.Now().Format(time.DateOnly))
 }
 
 func (fs *FSStore) EnsureDirectory(path string) error {
@@ -43,6 +49,7 @@ func (fs *FSStore) EnsureDirectory(path string) error {
 }
 
 func (fs *FSStore) AppendLine(path, content string) error {
+	// Adding O_CREATE creates the file if missing. Neat!
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err

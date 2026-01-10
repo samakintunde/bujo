@@ -32,7 +32,7 @@ var addCmd = &cobra.Command{
 			bullet = "-"
 		}
 
-		fs, err := storage.NewFSStore(cfg.Journal)
+		fs, err := storage.NewFSStore(cfg.GetJournalPath())
 		if err != nil {
 			return err
 		}
