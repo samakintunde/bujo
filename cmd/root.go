@@ -27,9 +27,11 @@ func Execute() error {
 }
 
 var cfgFilePath string
+var verbose bool
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFilePath, "config", "", "config file (default location: ./config.yaml, $HOME/.config/bujo/config.yaml)")
+	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "verbose output")
 }
 
 func initializeConfig(cmd *cobra.Command) error {
@@ -70,7 +72,10 @@ func initializeConfig(cmd *cobra.Command) error {
 		return err
 	}
 
-	fmt.Println("Configuration initialized. Using config file:", viper.ConfigFileUsed())
+	// TODO: Add a verbose logger
+	if verbose {
+		fmt.Println("Configuration initialized. Using config file:", viper.ConfigFileUsed())
+	}
 
 	return nil
 }

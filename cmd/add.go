@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/samakintunde/bujo-cli/internal/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -17,14 +18,36 @@ var addCmd = &cobra.Command{
 	Short: "Add a task/event/note",
 	Long:  "Add a task/event/note to the journal",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		err := initializeConfig(cmd)
+		if err != nil {
+			return err
+		}
 		entryType := "task"
+		bullet := "- [ ]"
 		if isEvent {
 			entryType = "event"
+			bullet = "- *"
 		} else if isNote {
 			entryType = "note"
+			bullet = "-"
 		}
 
-		fmt.Printf("Adding %s: %v\n", entryType, args)
+		fs, err := storage.NewFSStore(cfg.Journal)
+		if err != nil {
+			return err
+		}
+
+		dayLog, err := fs.GetTodayPath()
+		if err != nil {
+			return err
+		}
+
+		err = fs.AppendLine(dayLog, fmt.Sprintf("%s %s", bullet, args[0]))
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("Added %s: %v\n", entryType, args)
 		return nil
 	},
 }
