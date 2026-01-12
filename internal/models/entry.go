@@ -1,6 +1,12 @@
-package domain
+package models
 
-import "time"
+import (
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"github.com/samakintunde/bujo-cli/internal/id"
+)
 
 type EntryType string
 
@@ -36,28 +42,66 @@ type Entry struct {
 	UpdatedAt       time.Time
 }
 
-func (e *Entry) Signifier() string {
-	m := map[EntryType]string{
-		EntryTypeTask:  "[ ]",
-		EntryTypeEvent: " ○ ",
-		EntryTypeNote:  " – ",
+func NewEntry(entryType EntryType, content string) *Entry {
+	return &Entry{
+		ID:      id.New(),
+		Type:    entryType,
+		Status:  EntryStatusOpen,
+		Content: content,
 	}
+}
 
+func (e *Entry) String() string {
+	return fmt.Sprintf("%s %s", e.getMarkdownSignifier(), e.Content)
+}
+
+func (e *Entry) RawString() string {
+	metadata := Metadata{
+		ID:   e.ID,
+		Mig:  e.MigrationCount,
+		PID:  e.ParentID,
+		Rsch: e.RescheduleCount,
+	}
+	return fmt.Sprintf("%s %s %s", e.getMarkdownSignifier(), e.Content, metadata.String())
+}
+
+func (e *Entry) getMarkdownSignifier() string {
 	switch e.Type {
 	case EntryTypeTask:
-		return m[EntryTypeTask]
+		switch e.Status {
+		case EntryStatusOpen:
+			return "- [ ]"
+		case EntryStatusCompleted:
+			return "- [x]"
+		case EntryStatusMigrated:
+			return "- [<]"
+		case EntryStatusCancelled:
+			return "- [-]"
+		case EntryStatusScheduled:
+			return "- [>]"
+		default:
+			return "- [ ]"
+		}
 	case EntryTypeEvent:
-		return m[EntryTypeEvent]
+		return "- *"
 	case EntryTypeNote:
-		return m[EntryTypeNote]
+		return "-"
 	default:
-		return ""
+		return "- [ ]"
 	}
 }
 
 type Metadata struct {
-	ID   string
-	Mig  int
-	PID  string
-	Rsch int
+	ID   string `json:"id"`
+	Mig  int    `json:"mig"`
+	PID  string `json:"pid"`
+	Rsch int    `json:"rsch"`
+}
+
+func (m *Metadata) String() string {
+	b, err := json.Marshal(m)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("<!-- %s -->", b)
 }

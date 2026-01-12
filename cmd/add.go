@@ -3,15 +3,18 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/samakintunde/bujo-cli/internal/models"
 	"github.com/samakintunde/bujo-cli/internal/storage"
 	"github.com/spf13/cobra"
 )
 
-var (
+type EntryTypeFlags struct {
 	isTask  bool
 	isEvent bool
 	isNote  bool
-)
+}
+
+var entryTypeFlags EntryTypeFlags
 
 var addCmd = &cobra.Command{
 	Use:   "add <text> [flags]",
@@ -22,40 +25,48 @@ var addCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		entryType := "task"
-		bullet := "- [ ]"
-		if isEvent {
-			entryType = "event"
-			bullet = "- *"
-		} else if isNote {
-			entryType = "note"
-			bullet = "-"
-		}
 
 		fs, err := storage.NewFSStore(cfg.GetJournalPath())
 		if err != nil {
 			return err
 		}
 
-		dayLog, err := fs.GetTodayPath()
+		entryFilePath, err := fs.GetTodayPath()
 		if err != nil {
 			return err
 		}
 
-		err = fs.AppendLine(dayLog, fmt.Sprintf("%s %s", bullet, args[0]))
+		entryType := inferEntryType(entryTypeFlags)
+		entryContent := args[0]
+		entry := models.NewEntry(entryType, entryContent)
+
+		err = fs.AppendLine(entryFilePath, entry.RawString())
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("Added %s: %v\n", entryType, args)
+		fmt.Printf("Added %s #%s\n", entryType, entry.ID)
 		return nil
 	},
 }
 
+func inferEntryType(args EntryTypeFlags) models.EntryType {
+	switch {
+	case args.isTask:
+		return models.EntryTypeTask
+	case args.isEvent:
+		return models.EntryTypeEvent
+	case args.isNote:
+		return models.EntryTypeNote
+	default:
+		return models.EntryTypeTask
+	}
+}
+
 func init() {
-	addCmd.Flags().BoolVar(&isTask, "task", false, "Add a task")
-	addCmd.Flags().BoolVar(&isEvent, "event", false, "Add an event")
-	addCmd.Flags().BoolVar(&isNote, "note", false, "Add a note")
+	addCmd.Flags().BoolVar(&entryTypeFlags.isTask, "task", false, "Add a task")
+	addCmd.Flags().BoolVar(&entryTypeFlags.isEvent, "event", false, "Add an event")
+	addCmd.Flags().BoolVar(&entryTypeFlags.isNote, "note", false, "Add a note")
 
 	addCmd.MarkFlagsMutuallyExclusive("task", "event", "note")
 
