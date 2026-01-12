@@ -9,8 +9,7 @@ import (
 )
 
 func IsPresent() bool {
-	cmd := exec.Command("command", "-v", "git")
-	err := cmd.Run()
+	_, err := exec.LookPath("git")
 	return err == nil
 }
 
