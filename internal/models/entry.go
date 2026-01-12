@@ -128,9 +128,9 @@ func (e *Entry) getMarkdownSignifier() string {
 
 type Metadata struct {
 	ID   string `json:"id"`
-	Mig  int    `json:"mig"`
-	PID  string `json:"pid"`
-	Rsch int    `json:"rsch"`
+	Mig  int    `json:"mig,omitempty"`
+	PID  string `json:"pid,omitempty"`
+	Rsch int    `json:"rsch,omitempty"`
 }
 
 func (m *Metadata) String() string {

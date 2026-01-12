@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"path/filepath"
 
+	"github.com/samakintunde/bujo-cli/internal/git"
 	"github.com/samakintunde/bujo-cli/internal/models"
 	"github.com/samakintunde/bujo-cli/internal/storage"
 	"github.com/spf13/cobra"
@@ -20,10 +22,18 @@ var addCmd = &cobra.Command{
 	Use:   "add <text> [flags]",
 	Short: "Add a task/event/note",
 	Long:  "Add a task/event/note to the journal",
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		err := initializeConfig(cmd)
 		if err != nil {
 			return err
+		}
+
+		if git.IsPresent() {
+			err = git.Init(cfg.GetJournalPath())
+			if err != nil {
+				return err
+			}
 		}
 
 		fs, err := storage.NewFSStore(cfg.GetJournalPath())
@@ -43,6 +53,14 @@ var addCmd = &cobra.Command{
 		err = fs.AppendLine(entryFilePath, entry.RawString())
 		if err != nil {
 			return err
+		}
+
+		if git.IsPresent() {
+			dir := filepath.Dir(entryFilePath)
+			message := fmt.Sprintf("feat(bujo): add %s #%s\n", entryType, entry.ID)
+			if err := git.Commit(dir, message); err != nil {
+				return err
+			}
 		}
 
 		fmt.Printf("Added %s #%s\n", entryType, entry.ID)
