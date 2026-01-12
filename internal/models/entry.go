@@ -65,6 +65,41 @@ func (e *Entry) RawString() string {
 	return fmt.Sprintf("%s %s %s", e.getMarkdownSignifier(), e.Content, metadata.String())
 }
 
+func (e *Entry) DisplayString() string {
+	return fmt.Sprintf("%s %s", e.getDisplaySignifier(), e.Content)
+}
+
+func (e *Entry) getDisplaySignifier() string {
+	switch e.Type {
+	case EntryTypeTask:
+		switch e.Status {
+		case EntryStatusOpen:
+			return "•"
+		case EntryStatusCompleted:
+			return "x"
+		case EntryStatusMigrated:
+			return "<"
+		case EntryStatusCancelled:
+			return "-"
+		case EntryStatusScheduled:
+			return ">"
+		default:
+			return ""
+		}
+	case EntryTypeEvent:
+		switch e.Status {
+		case EntryStatusOpen:
+			return "•"
+		default:
+			return "•"
+		}
+	case EntryTypeNote:
+		return "-"
+	default:
+		return ""
+	}
+}
+
 func (e *Entry) getMarkdownSignifier() string {
 	switch e.Type {
 	case EntryTypeTask:

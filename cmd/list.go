@@ -2,10 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
+	"github.com/samakintunde/bujo-cli/internal/parser"
 	"github.com/samakintunde/bujo-cli/internal/storage"
 	"github.com/spf13/cobra"
 )
@@ -22,6 +22,7 @@ var listCmd = &cobra.Command{
 			if err != nil {
 				return err
 			}
+			parsedDate = parsed
 			date = parsed.Format(time.DateOnly)
 		}
 		err := initializeConfig(cmd)
@@ -37,17 +38,18 @@ var listCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		f, err := os.ReadFile(dayLog)
+		entries, err := parser.Parse(dayLog)
 		if err != nil {
-			if os.IsNotExist(err) {
-				fmt.Printf("No entries found for %s\n", parsedDate.Format("2 January, 2006"))
-				return nil
-			}
 			return err
 		}
 		header := fmt.Sprintf("Entries (%s):\n", parsedDate.Format("2 January, 2006"))
 		border := strings.Repeat("-", len(header))
-		fmt.Printf(header + border + "\n" + string(f))
+		var body strings.Builder
+		for _, entry := range entries {
+			body.WriteString(entry.DisplayString())
+			body.WriteString("\n")
+		}
+		fmt.Printf("%s%s\n%s", header, border, body.String())
 		return nil
 	},
 }
