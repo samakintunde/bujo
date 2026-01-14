@@ -56,14 +56,17 @@ func (e *Entry) String() string {
 	return fmt.Sprintf("%s %s", e.getMarkdownSignifier(), e.Content)
 }
 
-func (e *Entry) RawString() string {
-	metadata := Metadata{
+func (e *Entry) Metadata() Metadata {
+	return Metadata{
 		ID:   e.ID,
 		Mig:  e.MigrationCount,
 		PID:  e.ParentID,
 		Rsch: e.RescheduleCount,
 	}
-	return fmt.Sprintf("%s %s %s", e.getMarkdownSignifier(), e.Content, metadata.String())
+}
+
+func (e *Entry) RawString() string {
+	return fmt.Sprintf("%s %s %s", e.getMarkdownSignifier(), e.Content, e.Metadata().String())
 }
 
 func (e *Entry) DisplayString() string {
@@ -129,7 +132,7 @@ type Metadata struct {
 	Rsch int    `json:"rsch,omitempty"`
 }
 
-func (m *Metadata) String() string {
+func (m Metadata) String() string {
 	b, err := json.Marshal(m)
 	if err != nil {
 		return ""
