@@ -13,6 +13,11 @@ func IsPresent() bool {
 	return err == nil
 }
 
+func IsRepo(dir string) bool {
+	info, err := os.Stat(dir + "/.git")
+	return err == nil && info.IsDir()
+}
+
 func Init(dir string) error {
 	cmd := exec.Command("git", "init", "-b", "main")
 	cmd.Dir = dir

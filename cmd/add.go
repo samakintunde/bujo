@@ -30,7 +30,7 @@ var addCmd = &cobra.Command{
 			return err
 		}
 
-		if git.IsPresent() {
+		if git.IsPresent() && !git.IsRepo(cfg.GetJournalPath()) {
 			err = git.Init(cfg.GetJournalPath())
 			if err != nil {
 				return err
