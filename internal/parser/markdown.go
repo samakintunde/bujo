@@ -23,7 +23,41 @@ var noteRegex = regexp.MustCompile(`^-\s+(.*)`)
 // Matches hidden comment: <!-- {...} -->
 var metaRegex = regexp.MustCompile(`<!--\s*(\{.*\})\s*-->`)
 
+// Parse reads a markdown file and returns valid entries.
+// It filters out EntryTypeIgnore lines.
+// Use this for reading/indexing data (e.g. DB import).
 func Parse(path string) ([]models.Entry, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []models.Entry{}, fmt.Errorf("No entries found")
+		}
+		return []models.Entry{}, err
+	}
+	defer f.Close()
+
+	entries := make([]models.Entry, 0)
+
+	scanner := bufio.NewScanner(f)
+	i := 0
+	for scanner.Scan() {
+		entry := parseLine(scanner.Text())
+		if entry.Type == models.EntryTypeIgnore {
+			i++
+			continue
+		}
+		entry.LineNumber = i + 1
+		entry.FilePath = path
+		entries = append(entries, entry)
+		i++
+	}
+	return entries, nil
+}
+
+// ParseRaw reads a markdown file and returns ALL lines as entries,
+// including EntryTypeIgnore lines.
+// Use this for file rewriting/syncing to preserve structure.
+func ParseRaw(path string) ([]models.Entry, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -42,6 +76,7 @@ func Parse(path string) ([]models.Entry, error) {
 		entry.LineNumber = i + 1
 		entry.FilePath = path
 		entries = append(entries, entry)
+		i++
 	}
 	return entries, nil
 }
