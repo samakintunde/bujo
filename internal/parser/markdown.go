@@ -51,6 +51,9 @@ func Parse(path string) ([]models.Entry, error) {
 		entries = append(entries, entry)
 		i++
 	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
 	return entries, nil
 }
 
@@ -77,6 +80,9 @@ func ParseRaw(path string) ([]models.Entry, error) {
 		entry.FilePath = path
 		entries = append(entries, entry)
 		i++
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
 	}
 	return entries, nil
 }
