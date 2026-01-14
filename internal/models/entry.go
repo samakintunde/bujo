@@ -11,9 +11,10 @@ import (
 type EntryType string
 
 const (
-	EntryTypeTask  EntryType = "task"
-	EntryTypeNote  EntryType = "note"
-	EntryTypeEvent EntryType = "event"
+	EntryTypeTask   EntryType = "task"
+	EntryTypeNote   EntryType = "note"
+	EntryTypeEvent  EntryType = "event"
+	EntryTypeIgnore EntryType = ""
 )
 
 type EntryStatus string
