@@ -79,21 +79,16 @@ func (e *Entry) getDisplaySignifier() string {
 		case EntryStatusCompleted:
 			return "x"
 		case EntryStatusMigrated:
-			return "<"
+			return ">"
 		case EntryStatusCancelled:
 			return "-"
 		case EntryStatusScheduled:
-			return ">"
+			return "<"
 		default:
 			return ""
 		}
 	case EntryTypeEvent:
-		switch e.Status {
-		case EntryStatusOpen:
-			return "•"
-		default:
-			return "•"
-		}
+		return "•"
 	case EntryTypeNote:
 		return "-"
 	default:
@@ -110,11 +105,11 @@ func (e *Entry) getMarkdownSignifier() string {
 		case EntryStatusCompleted:
 			return "- [x]"
 		case EntryStatusMigrated:
-			return "- [<]"
+			return "- [>]"
 		case EntryStatusCancelled:
 			return "- [-]"
 		case EntryStatusScheduled:
-			return "- [>]"
+			return "- [<]"
 		default:
 			return "- [ ]"
 		}
