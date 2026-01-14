@@ -63,10 +63,7 @@ var listCmd = &cobra.Command{
 			return err
 		}
 
-		dayLog, err := fsStore.GetDayPath(date)
-		if err != nil {
-			return err
-		}
+		dayLog := fsStore.GetDayPath(date)
 
 		entries, err := dbStore.GetEntriesByFile(dayLog)
 		if err != nil {

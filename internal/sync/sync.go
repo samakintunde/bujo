@@ -57,7 +57,7 @@ func (s *Syncer) syncFile(path string, d fs.DirEntry) error {
 	}
 
 	if info.ModTime().After(lastSynced) {
-		entries, err := parser.Parse(path)
+		entries, err := parser.ParseRaw(path)
 		if err != nil {
 			return fmt.Errorf("failed to parse %s: %w", path, err)
 		}
