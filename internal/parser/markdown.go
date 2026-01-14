@@ -87,6 +87,8 @@ func parseLine(line string) models.Entry {
 		entry.Type = models.EntryTypeNote
 		entry.Content = strings.TrimSpace(match[1])
 		entry.Status = models.EntryStatusOpen
+	} else {
+		entry.Type = models.EntryTypeIgnore
 	}
 	return entry
 }
