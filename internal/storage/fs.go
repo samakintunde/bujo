@@ -16,36 +16,25 @@ func NewFSStore(basePath string) (*FSStore, error) {
 	return &FSStore{Root: basePath}, nil
 }
 
-func (fs *FSStore) GetDayPath(dateStr string) (string, error) {
+func (fs *FSStore) GetDayPath(dateStr string) string {
 	parsedDate, err := time.Parse(time.DateOnly, dateStr)
 	if err != nil {
-		return "", err
+		return filepath.Join(fs.Root, dateStr+".md")
 	}
-	date := parsedDate.Format(time.DateOnly)
-	dateParts := strings.Split(date, "-")
-	year := dateParts[0]
-	month := dateParts[1]
-	fileName := fmt.Sprintf("%s.md", date)
+	year := parsedDate.Format("2006")
+	month := parsedDate.Format("01")
+	fileName := dateStr + ".md"
 
-	dirPath := filepath.Join(fs.Root, year, month)
-
-	if err := fs.EnsureDirectory(dirPath); err != nil {
-		return "", err
-	}
-
-	return filepath.Join(dirPath, fileName), nil
+	return filepath.Join(fs.Root, year, month, fileName)
 }
 
-func (fs *FSStore) GetTodayPath() (string, error) {
-	return fs.GetDayPath(time.Now().Format(time.DateOnly))
-}
-
-func (fs *FSStore) EnsureDirectory(path string) error {
-	err := os.MkdirAll(path, 0755)
-	if err != nil {
-		return err
+func (fs *FSStore) EnsureDayPath(dateStr string) (string, error) {
+	path := fs.GetDayPath(dateStr)
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "", err
 	}
-	return nil
+	return path, nil
 }
 
 func (fs *FSStore) AppendLine(path, content string) error {

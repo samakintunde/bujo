@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/samakintunde/bujo-cli/internal/git"
 	"github.com/samakintunde/bujo-cli/internal/models"
@@ -41,7 +42,7 @@ var addCmd = &cobra.Command{
 			return err
 		}
 
-		entryFilePath, err := fs.GetTodayPath()
+		entryFilePath, err := fs.EnsureDayPath(time.Now().Format(time.DateOnly))
 		if err != nil {
 			return err
 		}
