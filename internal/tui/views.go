@@ -31,7 +31,7 @@ func (a *App) renderDailyView() string {
 }
 
 func (a *App) renderHeader() string {
-	dateStr := a.currentDate.Format("2006-01-02")
+	dateStr := a.currentDate.Format("02, January, 2006")
 
 	var todayBadge string
 	if a.isToday() {
