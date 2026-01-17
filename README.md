@@ -1,81 +1,86 @@
-# bujo-cli
+# bujo
 
-> **Status**: v0.1.0 (Beta)
+> **Terminal-based Bullet Journal for developers**
+>
+> ![Status](https://img.shields.io/badge/status-v0.1.0--(Beta)-blue) ![License](https://img.shields.io/badge/license-GPLv3-green)
 
-A terminal-based Bullet Journal (BuJo) tool for developers who want to organize their day without leaving the command line.
-
-It focuses on **speed** (capture fast) and **intentionality** (review often).
+`bujo` is a minimalist, terminal-based Bullet Journaling tool designed for developers who value speed, intentionality, and the "File over App" philosophy. It allows you to manage your daily tasks, events, and notes without ever leaving your terminal.
 
 ## Philosophy
 
-- **[File over app](https://stephango.com/file-over-app)**
-- **Speed**
-- **Focus**
-- **Local First**
-- **Git-friendly**
+- **Speed**: Capture thoughts and tasks instantly via the CLI.
+- **Local-first (Markdown files)**: Your data lives in plain Markdown files on your machine. No proprietary formats, no cloud lock-in.
+- **Intentionality**: Built-in workflows for migrating tasks and reviewing stale items to keep you focused on what matters.
 
 ## Installation
 
 ### Homebrew (macOS/Linux)
-
 ```bash
 brew install samakintunde/tap/bujo
 ```
 
-### Go Install
-
+### Go
 ```bash
 go install github.com/samakintunde/bujo@latest
 ```
 
 ### Manual
+Download the pre-compiled binaries for your platform from the [GitHub Releases](https://github.com/samakintunde/bujo/releases) page.
 
-Download the latest binary from the [Releases page](https://github.com/samakintunde/bujo/releases).
+## Quick Start / Workflow
 
-## Usage
-
-### 1. Rapid Logging (CLI)
-
-Capture thoughts immediately from your shell.
+### 1. Capture (CLI)
+Capture entries instantly from your shell. By default, entries are added to today's log as tasks.
 
 ```bash
-# Add a task for today (default)
-bujo add "Review PR #42"
+# Add a task for today
+bujo add "Finish the project documentation"
 
 # Add an event
-bujo add -t event "Team Standup at 10am"
+bujo add -t event "Sprint Planning at 2 PM"
 
 # Add a note
-bujo add -t note "Server IP: 192.168.1.5"
-
-# Add a task for a specific date (YYYY-MM-DD)
-bujo add -d 2024-02-01 "Doctor appointment"
+bujo add -t note "Meeting ID: 123-456-789"
 ```
 
-### 2. Daily View (TUI)
-
-Launch the interactive view to manage your day.
+### 2. Plan (TUI)
+Launch the interactive Terminal User Interface (TUI) to manage your day, migrate tasks, and review your progress.
 
 ```bash
 bujo
 ```
 
-- **Space**: Toggle status (Open -> Done -> Irrelevant)
-- **a**: Add new item
-- **m**: Migrate task (Workflow triggered on startup if pending tasks exist)
-- **q**: Quit
+## TUI Keybindings
 
-### 3. List (CLI)
+| Key | Action | Description |
+| :--- | :--- | :--- |
+| **Navigation** | | |
+| `j` / `k` | **Move Cursor** | Select next/previous entry |
+| `h` / `l` | **Change Date** | Navigate to previous/next day |
+| `t` | **Jump Today** | Go straight to today's log |
+| **Actions** | | |
+| `Space` | **Toggle State** | Cycle: Open → Done → Cancelled → Open |
+| `a` | **Add** | Add a new entry to the current day |
+| `m` | **Migrate** | Move open task to today |
+| `s` | **Schedule** | Move open task to a specific future date |
+| **Advanced** | | |
+| `r` | **Review** | Enter **Review Mode** to process stale tasks |
+| `[` / `]` | **History** | Trace a task's migration history backward/forward |
+| `q` | **Quit** | Exit the application |
 
-Quickly see what's on your plate without entering the full TUI.
+## Data Storage
 
-```bash
-bujo list
+`bujo` follows the "File over App" philosophy. Your data lives in `~/.bujo` (or your configured path) as plain Markdown files.
+
+The directory structure follows a logical date-based hierarchy:
+```
+~/.bujo/
+└── 2026/
+    └── 01/
+        └── 2026-01-17.md
 ```
 
-## Data Location
-
-All data is stored in `~/.bujo`
+You can open and edit these files directly with any text editor. `bujo` will automatically sync changes when you launch the TUI or use CLI commands.
 
 ## License
 
