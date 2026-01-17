@@ -8,18 +8,18 @@ import (
 	"strings"
 	"time"
 
-	dbStorage "github.com/samakintunde/bujo-cli/internal/db"
 	"github.com/samakintunde/bujo-cli/internal/id"
 	"github.com/samakintunde/bujo-cli/internal/models"
 	"github.com/samakintunde/bujo-cli/internal/parser"
+	"github.com/samakintunde/bujo-cli/internal/storage"
 )
 
 type Syncer struct {
 	Root string
-	DB   *dbStorage.DBStore
+	DB   *storage.DBStore
 }
 
-func NewSyncer(root string, db *dbStorage.DBStore) *Syncer {
+func NewSyncer(root string, db *storage.DBStore) *Syncer {
 	return &Syncer{
 		Root: root,
 		DB:   db,

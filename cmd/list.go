@@ -6,8 +6,7 @@ import (
 	"strings"
 	"time"
 
-	dbStorage "github.com/samakintunde/bujo-cli/internal/db"
-	fsStorage "github.com/samakintunde/bujo-cli/internal/storage"
+	"github.com/samakintunde/bujo-cli/internal/storage"
 	"github.com/samakintunde/bujo-cli/internal/sync"
 	"github.com/spf13/cobra"
 )
@@ -47,13 +46,13 @@ var listCmd = &cobra.Command{
 			return err
 		}
 
-		dbStore, err := dbStorage.New(cfg.GetDBPath())
+		dbStore, err := storage.NewDBStore(cfg.GetDBPath())
 		if err != nil {
 			return err
 		}
 		defer dbStore.Close()
 
-		fsStore, err := fsStorage.NewFSStore(cfg.GetJournalPath())
+		fsStore, err := storage.NewFSStore(cfg.GetJournalPath())
 		if err != nil {
 			return err
 		}

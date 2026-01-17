@@ -10,7 +10,7 @@ import (
 func TestNew(t *testing.T) {
 	dir := t.TempDir()
 
-	store, err := New(dir)
+	store, err := NewDBStore(dir)
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
 	}
@@ -23,7 +23,7 @@ func TestNew(t *testing.T) {
 
 func TestSyncAndGetEntries(t *testing.T) {
 	dir := t.TempDir()
-	store, err := New(dir)
+	store, err := NewDBStore(dir)
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
 	}
@@ -74,7 +74,7 @@ func TestSyncAndGetEntries(t *testing.T) {
 
 func TestSyncReplacesExisting(t *testing.T) {
 	dir := t.TempDir()
-	store, err := New(dir)
+	store, err := NewDBStore(dir)
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestSyncReplacesExisting(t *testing.T) {
 
 func TestSyncSkipsIgnoredEntries(t *testing.T) {
 	dir := t.TempDir()
-	store, err := New(dir)
+	store, err := NewDBStore(dir)
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
 	}
@@ -141,7 +141,7 @@ func TestSyncSkipsIgnoredEntries(t *testing.T) {
 
 func TestGetFileLastSync(t *testing.T) {
 	dir := t.TempDir()
-	store, err := New(dir)
+	store, err := NewDBStore(dir)
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
 	}

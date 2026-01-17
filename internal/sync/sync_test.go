@@ -6,12 +6,12 @@ import (
 	"strings"
 	"testing"
 
-	dbStorage "github.com/samakintunde/bujo-cli/internal/db"
+	"github.com/samakintunde/bujo-cli/internal/storage"
 )
 
 func setupSyncer(t *testing.T) (string, *Syncer) {
 	dir := t.TempDir()
-	db, err := dbStorage.New(dir)
+	db, err := storage.NewDBStore(dir)
 	if err != nil {
 		t.Fatalf("New DB error: %v", err)
 	}

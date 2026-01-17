@@ -15,7 +15,7 @@ type DBStore struct {
 
 const DB_FILEPATH = "db.sqlite"
 
-func New(basePath string) (*DBStore, error) {
+func NewDBStore(basePath string) (*DBStore, error) {
 	dbFilePath := filepath.Join(basePath, DB_FILEPATH)
 	db, err := sql.Open("sqlite", dbFilePath)
 	if err != nil {
