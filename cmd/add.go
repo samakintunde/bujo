@@ -2,12 +2,13 @@ package cmd
 
 import (
 	"fmt"
-	"path/filepath"
 	"time"
 
 	"github.com/samakintunde/bujo/internal/git"
 	"github.com/samakintunde/bujo/internal/models"
+	"github.com/samakintunde/bujo/internal/service"
 	"github.com/samakintunde/bujo/internal/storage"
+	"github.com/samakintunde/bujo/internal/sync"
 	"github.com/spf13/cobra"
 )
 
@@ -37,31 +38,26 @@ var addCmd = &cobra.Command{
 			}
 		}
 
+		db, err := storage.NewDBStore(cfg.GetDBPath())
+		if err != nil {
+			return err
+		}
+		defer db.Close()
+
 		fs, err := storage.NewFSStore(cfg.GetJournalPath())
 		if err != nil {
 			return err
 		}
 
-		entryFilePath, err := fs.EnsureDayPath(time.Now().Format(time.DateOnly))
-		if err != nil {
-			return err
-		}
+		syncer := sync.NewSyncer(cfg.GetJournalPath(), db)
+		svc := service.NewJournalService(fs, db, syncer)
 
 		entryType := inferEntryType(entryTypeFlags)
 		entryContent := args[0]
-		entry := models.NewEntry(entryType, entryContent)
 
-		err = fs.AppendLine(entryFilePath, entry.RawString())
+		entry, err := svc.AddEntry(entryContent, entryType, time.Now())
 		if err != nil {
 			return err
-		}
-
-		if git.IsPresent() {
-			dir := filepath.Dir(entryFilePath)
-			message := fmt.Sprintf("feat(bujo): add %s #%s\n", entryType, entry.ID)
-			if err := git.Commit(dir, message); err != nil {
-				return err
-			}
 		}
 
 		fmt.Printf("Added %s #%s\n", entryType, entry.ID)

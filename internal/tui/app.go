@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/samakintunde/bujo/internal/models"
+	"github.com/samakintunde/bujo/internal/service"
 	"github.com/samakintunde/bujo/internal/storage"
 	"github.com/samakintunde/bujo/internal/sync"
 )
@@ -48,9 +49,10 @@ type App struct {
 	migrationChain      []models.Entry
 	migrationChainIndex int
 
-	db     *storage.DBStore
-	fs     *storage.FSStore
-	syncer *sync.Syncer
+	db      *storage.DBStore
+	fs      *storage.FSStore
+	syncer  *sync.Syncer
+	service *service.JournalService
 
 	width  int
 	height int
@@ -71,6 +73,8 @@ func NewApp(db *storage.DBStore, fs *storage.FSStore, syncer *sync.Syncer) *App 
 	ti.CharLimit = 256
 	ti.Width = 40
 
+	svc := service.NewJournalService(fs, db, syncer)
+
 	return &App{
 		state:       StateDailyView,
 		currentDate: time.Now(),
@@ -83,6 +87,7 @@ func NewApp(db *storage.DBStore, fs *storage.FSStore, syncer *sync.Syncer) *App 
 		db:          db,
 		fs:          fs,
 		syncer:      syncer,
+		service:     svc,
 		width:       80,
 		height:      24,
 	}

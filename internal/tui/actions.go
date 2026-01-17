@@ -65,20 +65,8 @@ func (a *App) addEntry(text string) tea.Cmd {
 			content = strings.TrimSpace(content)
 		}
 
-		entry := models.NewEntry(entryType, content)
-
-		dateStr := a.currentDate.Format(time.DateOnly)
-		path, err := a.fs.EnsureDayPath(dateStr)
+		_, err := a.service.AddEntry(content, entryType, a.currentDate)
 		if err != nil {
-			return entryAddedMsg{err: err}
-		}
-
-		line := entry.RawString()
-		if err := a.fs.AppendLine(path, line); err != nil {
-			return entryAddedMsg{err: err}
-		}
-
-		if err := a.syncer.SyncFile(path); err != nil {
 			return entryAddedMsg{err: err}
 		}
 
