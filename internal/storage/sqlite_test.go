@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -18,6 +20,24 @@ func TestNew(t *testing.T) {
 
 	if store.db == nil {
 		t.Error("New() returned store with nil db")
+	}
+}
+
+func TestNewDBStore_CreatesDirectory(t *testing.T) {
+	tempDir := t.TempDir()
+	nonExistentDir := filepath.Join(tempDir, "subdir")
+	if _, err := os.Stat(nonExistentDir); !os.IsNotExist(err) {
+		t.Fatalf("setup: expected %s to not exist", nonExistentDir)
+	}
+
+	store, err := NewDBStore(nonExistentDir)
+	if err != nil {
+		t.Fatalf("NewDBStore() with non-existent dir failed: %v", err)
+	}
+	defer store.Close()
+
+	if _, err := os.Stat(nonExistentDir); os.IsNotExist(err) {
+		t.Errorf("NewDBStore() did not create directory %s", nonExistentDir)
 	}
 }
 

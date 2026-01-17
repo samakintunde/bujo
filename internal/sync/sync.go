@@ -27,6 +27,9 @@ func NewSyncer(root string, db *storage.DBStore) *Syncer {
 }
 
 func (s *Syncer) Sync() error {
+	if err := os.MkdirAll(s.Root, 0755); err != nil {
+		return err
+	}
 	return filepath.WalkDir(s.Root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
