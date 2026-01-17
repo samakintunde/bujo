@@ -5,6 +5,8 @@
 
 `bujo` is a minimalist, terminal-based Bullet Journaling tool designed for developers who value speed, intentionality, and the "File over App" philosophy. It allows you to manage your daily tasks, events, and notes without ever leaving your terminal.
 
+![bujo demo](assets/demo.png)
+
 ## Philosophy
 
 - **Speed**: Capture thoughts and tasks instantly via the CLI.
