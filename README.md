@@ -1,8 +1,7 @@
 # bujo
+**Terminal-based Bullet Journal for developers**
 
-> **Terminal-based Bullet Journal for developers**
->
-> ![Status](https://img.shields.io/badge/status-v0.1.0--(Beta)-blue) ![License](https://img.shields.io/badge/license-GPLv3-green)
+> [![release](https://github.com/samakintunde/bujo/actions/workflows/release.yml/badge.svg)](https://github.com/samakintunde/bujo/actions/workflows/release.yml) ![Status](https://img.shields.io/badge/status-v0.1.0--(Beta)-blue) ![License](https://img.shields.io/badge/license-GPLv3-green)
 
 `bujo` is a minimalist, terminal-based Bullet Journaling tool designed for developers who value speed, intentionality, and the "File over App" philosophy. It allows you to manage your daily tasks, events, and notes without ever leaving your terminal.
 
