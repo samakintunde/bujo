@@ -14,39 +14,27 @@ func (a *App) cycleEntryStatus() tea.Cmd {
 		return nil
 	}
 
-	entry := &a.entries[a.cursor]
+	entry := a.entries[a.cursor]
 
 	if entry.Type != models.EntryTypeTask {
 		return nil
 	}
 
+	var newStatus models.EntryStatus
 	switch entry.Status {
 	case models.EntryStatusOpen:
-		entry.Status = models.EntryStatusCompleted
+		newStatus = models.EntryStatusCompleted
 	case models.EntryStatusCompleted:
-		entry.Status = models.EntryStatusCancelled
+		newStatus = models.EntryStatusCancelled
 	case models.EntryStatusCancelled:
-		entry.Status = models.EntryStatusOpen
+		newStatus = models.EntryStatusOpen
 	default:
 		return nil
 	}
 
-	return a.updateEntryInFile(*entry)
-}
-
-func (a *App) updateEntryInFile(entry models.Entry) tea.Cmd {
 	return func() tea.Msg {
-		newLine := entry.RawString()
-		err := a.fs.UpdateLine(entry.FilePath, entry.LineNumber, newLine)
-		if err != nil {
-			return entryUpdatedMsg{err: err}
-		}
-
-		if err := a.syncer.SyncFile(entry.FilePath); err != nil {
-			return entryUpdatedMsg{err: err}
-		}
-
-		return entryUpdatedMsg{err: nil}
+		err := a.service.UpdateEntryStatus(entry, newStatus)
+		return entryUpdatedMsg{err: err}
 	}
 }
 
@@ -66,17 +54,25 @@ func (a *App) addEntry(text string) tea.Cmd {
 		}
 
 		_, err := a.service.AddEntry(content, entryType, a.currentDate)
-		if err != nil {
-			return entryAddedMsg{err: err}
+		return entryAddedMsg{err: err}
+	}
+}
+
+func (a *App) loadEntries(targetID ...string) tea.Cmd {
+	return func() tea.Msg {
+		tid := ""
+		if len(targetID) > 0 {
+			tid = targetID[0]
 		}
 
-		return entryAddedMsg{err: nil}
+		entries, err := a.service.GetEntriesByDate(a.currentDate)
+		return entriesLoadedMsg{entries: entries, err: err, targetID: tid}
 	}
 }
 
 func (a *App) loadReviewTasks(daysBack int) tea.Cmd {
 	return func() tea.Msg {
-		tasks, err := a.db.GetStaleTasks(daysBack)
+		tasks, err := a.service.GetStaleTasks(daysBack)
 		return reviewTasksLoadedMsg{tasks: tasks, err: err}
 	}
 }
@@ -88,32 +84,10 @@ func (a *App) migrateCurrentReviewTask() tea.Cmd {
 
 	task := a.reviewTasks[a.reviewCursor]
 	return func() tea.Msg {
-		task.Status = models.EntryStatusMigrated
-		newLine := task.RawString()
-		if err := a.fs.UpdateLine(task.FilePath, task.LineNumber, newLine); err != nil {
-			return entryUpdatedMsg{err: err}
-		}
-
-		migratedTask := models.NewEntry(models.EntryTypeTask, task.Content)
-		migratedTask.MigrationCount = task.MigrationCount + 1
-		migratedTask.ParentID = task.ID
-
-		todayPath, err := a.fs.EnsureDayPath(time.Now().Format(time.DateOnly))
+		_, err := a.service.MigrateTask(task)
 		if err != nil {
 			return entryUpdatedMsg{err: err}
 		}
-
-		if err := a.fs.AppendLine(todayPath, migratedTask.RawString()); err != nil {
-			return entryUpdatedMsg{err: err}
-		}
-
-		if err := a.syncer.SyncFile(task.FilePath); err != nil {
-			return entryUpdatedMsg{err: err}
-		}
-		if err := a.syncer.SyncFile(todayPath); err != nil {
-			return entryUpdatedMsg{err: err}
-		}
-
 		a.reviewSummary.Migrated++
 		return reviewActionCompleteMsg{}
 	}
@@ -126,16 +100,10 @@ func (a *App) completeCurrentReviewTask() tea.Cmd {
 
 	task := a.reviewTasks[a.reviewCursor]
 	return func() tea.Msg {
-		task.Status = models.EntryStatusCompleted
-		newLine := task.RawString()
-		if err := a.fs.UpdateLine(task.FilePath, task.LineNumber, newLine); err != nil {
+		err := a.service.UpdateEntryStatus(task, models.EntryStatusCompleted)
+		if err != nil {
 			return entryUpdatedMsg{err: err}
 		}
-
-		if err := a.syncer.SyncFile(task.FilePath); err != nil {
-			return entryUpdatedMsg{err: err}
-		}
-
 		a.reviewSummary.Completed++
 		return reviewActionCompleteMsg{}
 	}
@@ -148,16 +116,10 @@ func (a *App) cancelCurrentReviewTask() tea.Cmd {
 
 	task := a.reviewTasks[a.reviewCursor]
 	return func() tea.Msg {
-		task.Status = models.EntryStatusCancelled
-		newLine := task.RawString()
-		if err := a.fs.UpdateLine(task.FilePath, task.LineNumber, newLine); err != nil {
+		err := a.service.UpdateEntryStatus(task, models.EntryStatusCancelled)
+		if err != nil {
 			return entryUpdatedMsg{err: err}
 		}
-
-		if err := a.syncer.SyncFile(task.FilePath); err != nil {
-			return entryUpdatedMsg{err: err}
-		}
-
 		a.reviewSummary.Cancelled++
 		return reviewActionCompleteMsg{}
 	}
@@ -170,32 +132,15 @@ func (a *App) scheduleCurrentReviewTask(targetDate string) tea.Cmd {
 
 	task := a.reviewTasks[a.reviewCursor]
 	return func() tea.Msg {
-		task.Status = models.EntryStatusScheduled
-		newLine := task.RawString()
-		if err := a.fs.UpdateLine(task.FilePath, task.LineNumber, newLine); err != nil {
-			return entryUpdatedMsg{err: err}
-		}
-
-		scheduledTask := models.NewEntry(models.EntryTypeTask, task.Content)
-		scheduledTask.RescheduleCount = task.RescheduleCount + 1
-		scheduledTask.ParentID = task.ID
-
-		targetPath, err := a.fs.EnsureDayPath(targetDate)
+		parsed, err := time.Parse(time.DateOnly, targetDate)
 		if err != nil {
 			return entryUpdatedMsg{err: err}
 		}
 
-		if err := a.fs.AppendLine(targetPath, scheduledTask.RawString()); err != nil {
+		_, err = a.service.ScheduleTask(task, parsed)
+		if err != nil {
 			return entryUpdatedMsg{err: err}
 		}
-
-		if err := a.syncer.SyncFile(task.FilePath); err != nil {
-			return entryUpdatedMsg{err: err}
-		}
-		if err := a.syncer.SyncFile(targetPath); err != nil {
-			return entryUpdatedMsg{err: err}
-		}
-
 		a.reviewSummary.Scheduled++
 		return reviewActionCompleteMsg{}
 	}
@@ -205,71 +150,26 @@ type reviewActionCompleteMsg struct{}
 
 func (a *App) migrateEntryFromDailyView(entry models.Entry) tea.Cmd {
 	return func() tea.Msg {
-		entry.Status = models.EntryStatusMigrated
-		newLine := entry.RawString()
-		if err := a.fs.UpdateLine(entry.FilePath, entry.LineNumber, newLine); err != nil {
-			return entryUpdatedMsg{err: err}
-		}
-
-		migratedTask := models.NewEntry(models.EntryTypeTask, entry.Content)
-		migratedTask.MigrationCount = entry.MigrationCount + 1
-		migratedTask.ParentID = entry.ID
-
-		todayPath, err := a.fs.EnsureDayPath(time.Now().Format(time.DateOnly))
-		if err != nil {
-			return entryUpdatedMsg{err: err}
-		}
-
-		if err := a.fs.AppendLine(todayPath, migratedTask.RawString()); err != nil {
-			return entryUpdatedMsg{err: err}
-		}
-
-		if err := a.syncer.SyncFile(entry.FilePath); err != nil {
-			return entryUpdatedMsg{err: err}
-		}
-		if err := a.syncer.SyncFile(todayPath); err != nil {
-			return entryUpdatedMsg{err: err}
-		}
-
-		return entryUpdatedMsg{err: nil}
+		_, err := a.service.MigrateTask(entry)
+		return entryUpdatedMsg{err: err}
 	}
 }
 
 func (a *App) scheduleEntryFromDailyView(entry models.Entry, targetDate string) tea.Cmd {
 	return func() tea.Msg {
-		entry.Status = models.EntryStatusScheduled
-		newLine := entry.RawString()
-		if err := a.fs.UpdateLine(entry.FilePath, entry.LineNumber, newLine); err != nil {
-			return entryUpdatedMsg{err: err}
-		}
-
-		scheduledTask := models.NewEntry(models.EntryTypeTask, entry.Content)
-		scheduledTask.RescheduleCount = entry.RescheduleCount + 1
-		scheduledTask.ParentID = entry.ID
-
-		targetPath, err := a.fs.EnsureDayPath(targetDate)
+		parsed, err := time.Parse(time.DateOnly, targetDate)
 		if err != nil {
 			return entryUpdatedMsg{err: err}
 		}
 
-		if err := a.fs.AppendLine(targetPath, scheduledTask.RawString()); err != nil {
-			return entryUpdatedMsg{err: err}
-		}
-
-		if err := a.syncer.SyncFile(entry.FilePath); err != nil {
-			return entryUpdatedMsg{err: err}
-		}
-		if err := a.syncer.SyncFile(targetPath); err != nil {
-			return entryUpdatedMsg{err: err}
-		}
-
-		return entryUpdatedMsg{err: nil}
+		_, err = a.service.ScheduleTask(entry, parsed)
+		return entryUpdatedMsg{err: err}
 	}
 }
 
 func (a *App) loadMigrationChain(entryID string, direction int) tea.Cmd {
 	return func() tea.Msg {
-		chain, err := a.db.GetMigrationChain(entryID)
+		chain, err := a.service.GetMigrationChain(entryID)
 		if err != nil || len(chain) == 0 {
 			return chainLoadedMsg{err: err}
 		}
@@ -292,6 +192,23 @@ func (a *App) loadMigrationChain(entryID string, direction int) tea.Cmd {
 		}
 
 		return chainLoadedMsg{chain: chain, index: newIdx}
+	}
+}
+
+func (a *App) checkFirstOpenToday() tea.Cmd {
+	return func() tea.Msg {
+		lastOpened, _ := a.service.GetLastOpenedAt()
+		today := time.Now()
+
+		isFirstOpen := lastOpened.Year() != today.Year() ||
+			lastOpened.Month() != today.Month() ||
+			lastOpened.Day() != today.Day()
+
+		staleCount, _ := a.service.CountStaleTasks(0)
+
+		_ = a.service.SetLastOpenedAt(today)
+
+		return initCheckMsg{isFirstOpenToday: isFirstOpen, staleTaskCount: staleCount}
 	}
 }
 

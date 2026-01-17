@@ -127,40 +127,6 @@ func (a *App) Init() tea.Cmd {
 	return tea.Batch(a.loadEntries(), a.checkFirstOpenToday())
 }
 
-func (a *App) checkFirstOpenToday() tea.Cmd {
-	return func() tea.Msg {
-		lastOpened, _ := a.db.GetLastOpenedAt()
-		today := time.Now()
-
-		isFirstOpen := lastOpened.Year() != today.Year() ||
-			lastOpened.Month() != today.Month() ||
-			lastOpened.Day() != today.Day()
-
-		staleCount, _ := a.db.CountStaleTasks(0)
-
-		_ = a.db.SetLastOpenedAt(today)
-
-		return initCheckMsg{isFirstOpenToday: isFirstOpen, staleTaskCount: staleCount}
-	}
-}
-
-func (a *App) loadEntries(targetID ...string) tea.Cmd {
-	return func() tea.Msg {
-		tid := ""
-		if len(targetID) > 0 {
-			tid = targetID[0]
-		}
-		dateStr := a.currentDate.Format(time.DateOnly)
-		path := a.fs.GetDayPath(dateStr)
-
-		if err := a.syncer.SyncFile(path); err != nil {
-		}
-
-		entries, err := a.db.GetEntriesByFile(path)
-		return entriesLoadedMsg{entries: entries, err: err, targetID: tid}
-	}
-}
-
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
