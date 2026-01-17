@@ -21,6 +21,30 @@ func setupSyncer(t *testing.T) (string, *Syncer) {
 	return dir, syncer
 }
 
+func TestSync_CreatesDirectory(t *testing.T) {
+	dir := t.TempDir()
+	db, err := storage.NewDBStore(dir)
+	if err != nil {
+		t.Fatalf("New DB error: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	nonExistentRoot := filepath.Join(dir, "journal")
+	// Ensure it doesn't exist
+	if _, err := os.Stat(nonExistentRoot); !os.IsNotExist(err) {
+		t.Fatalf("setup: expected %s to not exist", nonExistentRoot)
+	}
+
+	syncer := NewSyncer(nonExistentRoot, db)
+	if err := syncer.Sync(); err != nil {
+		t.Fatalf("Sync() with non-existent root failed: %v", err)
+	}
+
+	if _, err := os.Stat(nonExistentRoot); os.IsNotExist(err) {
+		t.Errorf("Sync() did not create directory %s", nonExistentRoot)
+	}
+}
+
 func TestSync_SyncsMarkdownFiles(t *testing.T) {
 	dir, syncer := setupSyncer(t)
 

@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -16,6 +17,9 @@ type DBStore struct {
 const DB_FILEPATH = "db.sqlite"
 
 func NewDBStore(basePath string) (*DBStore, error) {
+	if err := os.MkdirAll(basePath, 0755); err != nil {
+		return nil, err
+	}
 	dbFilePath := filepath.Join(basePath, DB_FILEPATH)
 	db, err := sql.Open("sqlite", dbFilePath)
 	if err != nil {
