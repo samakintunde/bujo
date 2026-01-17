@@ -52,7 +52,7 @@ brews:
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     homepage: "https://github.com/samakintunde/bujo"
     description: "Terminal-based Bullet Journal tool"
-    license: "MIT"
+    license: "GPL-3.0"
     test: |
       system "#{bin}/bujo version"
 
