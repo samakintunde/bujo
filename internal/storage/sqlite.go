@@ -94,6 +94,15 @@ CREATE TABLE IF NOT EXISTS files (
 		return err
 	}
 
+	_, err = tx.Exec(`
+CREATE TABLE IF NOT EXISTS app_state (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);`)
+	if err != nil {
+		return err
+	}
+
 	err = tx.Commit()
 	if err != nil {
 		return err
@@ -181,4 +190,174 @@ func (s *DBStore) GetEntriesByFile(path string) ([]models.Entry, error) {
 		entries = append(entries, e)
 	}
 	return entries, nil
+}
+
+func (s *DBStore) CountStaleTasks(daysBack int) (int, error) {
+	var query string
+	var args []any
+
+	today := time.Now().Truncate(24 * time.Hour)
+
+	if daysBack == 0 {
+		query = `SELECT COUNT(*) FROM entries 
+			WHERE type = 'task' AND status = 'open' 
+			AND created_at < ?`
+		args = []any{today}
+	} else if daysBack == 1 {
+		query = `SELECT COUNT(*) FROM entries 
+			WHERE type = 'task' AND status = 'open' 
+			AND date(created_at) = (
+				SELECT MAX(date(created_at)) FROM entries 
+				WHERE type = 'task' AND status = 'open' AND created_at < ?
+			)`
+		args = []any{today}
+	} else {
+		cutoff := today.AddDate(0, 0, -daysBack)
+		query = `SELECT COUNT(*) FROM entries 
+			WHERE type = 'task' AND status = 'open' 
+			AND created_at < ? AND created_at >= ?`
+		args = []any{today, cutoff}
+	}
+
+	var count int
+	err := s.db.QueryRow(query, args...).Scan(&count)
+	return count, err
+}
+
+func (s *DBStore) GetStaleTasks(daysBack int) ([]models.Entry, error) {
+	var query string
+	var args []any
+
+	today := time.Now().Truncate(24 * time.Hour)
+
+	if daysBack == 0 {
+		query = `SELECT id, type, status, content, raw_content, file_path, line_number,
+				migration_count, reschedule_count, parent_id, created_at, updated_at
+			FROM entries 
+			WHERE type = 'task' AND status = 'open' 
+			AND created_at < ?
+			ORDER BY created_at ASC`
+		args = []any{today}
+	} else if daysBack == 1 {
+		query = `SELECT id, type, status, content, raw_content, file_path, line_number,
+				migration_count, reschedule_count, parent_id, created_at, updated_at
+			FROM entries 
+			WHERE type = 'task' AND status = 'open' 
+			AND date(created_at) = (
+				SELECT MAX(date(created_at)) FROM entries 
+				WHERE type = 'task' AND status = 'open' AND created_at < ?
+			)
+			ORDER BY created_at ASC`
+		args = []any{today}
+	} else {
+		cutoff := today.AddDate(0, 0, -daysBack)
+		query = `SELECT id, type, status, content, raw_content, file_path, line_number,
+				migration_count, reschedule_count, parent_id, created_at, updated_at
+			FROM entries 
+			WHERE type = 'task' AND status = 'open' 
+			AND created_at < ? AND created_at >= ?
+			ORDER BY created_at ASC`
+		args = []any{today, cutoff}
+	}
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var entries []models.Entry
+	for rows.Next() {
+		var e models.Entry
+		err := rows.Scan(
+			&e.ID, &e.Type, &e.Status, &e.Content, &e.RawContent, &e.FilePath, &e.LineNumber,
+			&e.MigrationCount, &e.RescheduleCount, &e.ParentID, &e.CreatedAt, &e.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		entries = append(entries, e)
+	}
+	return entries, nil
+}
+
+func (s *DBStore) UpdateEntryStatus(id string, status models.EntryStatus) error {
+	_, err := s.db.Exec(`UPDATE entries SET status = ?, updated_at = ? WHERE id = ?`,
+		status, time.Now(), id)
+	return err
+}
+
+func (s *DBStore) GetLastOpenedAt() (time.Time, error) {
+	var value string
+	err := s.db.QueryRow(`SELECT value FROM app_state WHERE key = 'last_opened_at'`).Scan(&value)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return time.Time{}, nil
+		}
+		return time.Time{}, err
+	}
+	return time.Parse(time.DateOnly, value)
+}
+
+func (s *DBStore) SetLastOpenedAt(t time.Time) error {
+	value := t.Format(time.DateOnly)
+	_, err := s.db.Exec(`INSERT OR REPLACE INTO app_state (key, value) VALUES ('last_opened_at', ?)`, value)
+	return err
+}
+
+// GetMigrationChain returns all entries in a task's migration/schedule chain.
+// It walks up to find the root (oldest ancestor), then collects all descendants.
+// Returns entries ordered from oldest to newest.
+func (s *DBStore) GetMigrationChain(entryID string) ([]models.Entry, error) {
+	rootID := entryID
+	for {
+		var parentID sql.NullString
+		err := s.db.QueryRow(`SELECT parent_id FROM entries WHERE id = ?`, rootID).Scan(&parentID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				break
+			}
+			return nil, err
+		}
+		if !parentID.Valid || parentID.String == "" {
+			break
+		}
+		rootID = parentID.String
+	}
+
+	var chain []models.Entry
+	currentID := rootID
+
+	for currentID != "" {
+		var e models.Entry
+		err := s.db.QueryRow(`
+			SELECT id, type, status, content, raw_content, file_path, line_number,
+			       migration_count, reschedule_count, parent_id, created_at, updated_at
+			FROM entries WHERE id = ?`, currentID).Scan(
+			&e.ID, &e.Type, &e.Status, &e.Content, &e.RawContent, &e.FilePath, &e.LineNumber,
+			&e.MigrationCount, &e.RescheduleCount, &e.ParentID, &e.CreatedAt, &e.UpdatedAt,
+		)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				break
+			}
+			return nil, err
+		}
+		chain = append(chain, e)
+
+		var childID sql.NullString
+		err = s.db.QueryRow(`SELECT id FROM entries WHERE parent_id = ?`, currentID).Scan(&childID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				break
+			}
+			return nil, err
+		}
+		if !childID.Valid {
+			break
+		}
+		currentID = childID.String
+	}
+
+	return chain, nil
 }

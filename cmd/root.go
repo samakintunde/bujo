@@ -6,7 +6,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/samakintunde/bujo-cli/internal/config"
+	"github.com/samakintunde/bujo-cli/internal/storage"
+	"github.com/samakintunde/bujo-cli/internal/sync"
+	"github.com/samakintunde/bujo-cli/internal/tui"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -18,7 +22,30 @@ var rootCmd = &cobra.Command{
 	Short: "A simple CLI tool for managing your daily tasks",
 	Long:  `Bujo is a simple CLI tool for managing your daily tasks. It allows you to create, edit, and delete tasks, notes and events.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return initializeConfig(cmd)
+		err := initializeConfig(cmd)
+		if err != nil {
+			return err
+		}
+		db, err := storage.NewDBStore(cfg.GetDBPath())
+		if err != nil {
+			return err
+		}
+		fs, err := storage.NewFSStore(cfg.GetJournalPath())
+		if err != nil {
+			return err
+		}
+		syncer := sync.NewSyncer(cfg.GetJournalPath(), db)
+		if err := syncer.Sync(); err != nil {
+			return err
+		}
+
+		app := tui.NewApp(db, fs, syncer)
+		p := tea.NewProgram(app, tea.WithAltScreen())
+		if _, err := p.Run(); err != nil {
+			fmt.Printf("Error running TUI: %v", err)
+			return err
+		}
+		return nil
 	},
 }
 

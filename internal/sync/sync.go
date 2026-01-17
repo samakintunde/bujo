@@ -41,16 +41,26 @@ func (s *Syncer) Sync() error {
 			return nil
 		}
 
-		return s.syncFile(path, d)
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		return s.syncFileWithInfo(path, info)
 	})
 }
 
-func (s *Syncer) syncFile(path string, d fs.DirEntry) error {
-	info, err := d.Info()
+func (s *Syncer) SyncFile(path string) error {
+	info, err := os.Stat(path)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
 		return err
 	}
+	return s.syncFileWithInfo(path, info)
+}
 
+func (s *Syncer) syncFileWithInfo(path string, info fs.FileInfo) error {
 	lastSynced, err := s.DB.GetFileLastSync(path)
 	if err != nil {
 		return fmt.Errorf("failed to get sync status for %s: %w", path, err)
