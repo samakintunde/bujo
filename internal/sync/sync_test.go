@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/samakintunde/bujo-cli/internal/storage"
+	"github.com/samakintunde/bujo/internal/storage"
 )
 
 func setupSyncer(t *testing.T) (string, *Syncer) {

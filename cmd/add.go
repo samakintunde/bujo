@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/samakintunde/bujo-cli/internal/git"
-	"github.com/samakintunde/bujo-cli/internal/models"
-	"github.com/samakintunde/bujo-cli/internal/storage"
+	"github.com/samakintunde/bujo/internal/git"
+	"github.com/samakintunde/bujo/internal/models"
+	"github.com/samakintunde/bujo/internal/storage"
 	"github.com/spf13/cobra"
 )
 

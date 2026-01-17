@@ -6,7 +6,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/samakintunde/bujo-cli/internal/models"
+	"github.com/samakintunde/bujo/internal/models"
 )
 
 func (a *App) cycleEntryStatus() tea.Cmd {

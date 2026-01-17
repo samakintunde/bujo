@@ -1,0 +1,62 @@
+version: 2
+
+project_name: bujo
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/samakintunde/bujo/cmd.Version={{.Version}}
+      - -X github.com/samakintunde/bujo/cmd.Commit={{.Commit}}
+      - -X github.com/samakintunde/bujo/cmd.Date={{.Date}}
+
+archives:
+  - format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+
+brews:
+  - name: bujo
+    repository:
+      owner: samakintunde
+      name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    homepage: "https://github.com/samakintunde/bujo"
+    description: "Terminal-based Bullet Journal tool"
+    license: "MIT"
+    test: |
+      system "#{bin}/bujo version"
+
+release:
+  github:
+    owner: samakintunde
+    name: bujo

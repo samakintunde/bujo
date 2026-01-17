@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/samakintunde/bujo-cli/internal/storage"
-	"github.com/samakintunde/bujo-cli/internal/sync"
+	"github.com/samakintunde/bujo/internal/storage"
+	"github.com/samakintunde/bujo/internal/sync"
 	"github.com/spf13/cobra"
 )
 

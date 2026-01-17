@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/samakintunde/bujo-cli/cmd"
+	"github.com/samakintunde/bujo/cmd"
 )
 
 func main() {

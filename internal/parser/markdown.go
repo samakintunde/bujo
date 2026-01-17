@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/samakintunde/bujo-cli/internal/models"
+	"github.com/samakintunde/bujo/internal/models"
 )
 
 // Matches: - [x] Buy milk

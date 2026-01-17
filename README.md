@@ -1,6 +1,6 @@
 # bujo-cli
 
-> **Status**: 🚧 Under Construction
+> **Status**: v0.1.0 (Beta)
 
 A terminal-based Bullet Journal (BuJo) tool for developers who want to organize their day without leaving the command line.
 
@@ -16,11 +16,21 @@ It focuses on **speed** (capture fast) and **intentionality** (review often).
 
 ## Installation
 
+### Homebrew (macOS/Linux)
+
 ```bash
-go install github.com/samakintunde/bujo-cli@latest
+brew install samakintunde/tap/bujo
 ```
 
-_(Note: Not yet released, build from source for now)_
+### Go Install
+
+```bash
+go install github.com/samakintunde/bujo@latest
+```
+
+### Manual
+
+Download the latest binary from the [Releases page](https://github.com/samakintunde/bujo/releases).
 
 ## Usage
 

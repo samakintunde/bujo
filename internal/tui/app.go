@@ -7,9 +7,9 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/samakintunde/bujo-cli/internal/models"
-	"github.com/samakintunde/bujo-cli/internal/storage"
-	"github.com/samakintunde/bujo-cli/internal/sync"
+	"github.com/samakintunde/bujo/internal/models"
+	"github.com/samakintunde/bujo/internal/storage"
+	"github.com/samakintunde/bujo/internal/sync"
 )
 
 type AppState int

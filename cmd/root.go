@@ -7,10 +7,10 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/samakintunde/bujo-cli/internal/config"
-	"github.com/samakintunde/bujo-cli/internal/storage"
-	"github.com/samakintunde/bujo-cli/internal/sync"
-	"github.com/samakintunde/bujo-cli/internal/tui"
+	"github.com/samakintunde/bujo/internal/config"
+	"github.com/samakintunde/bujo/internal/storage"
+	"github.com/samakintunde/bujo/internal/sync"
+	"github.com/samakintunde/bujo/internal/tui"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

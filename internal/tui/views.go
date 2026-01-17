@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/samakintunde/bujo-cli/internal/models"
+	"github.com/samakintunde/bujo/internal/models"
 )
 
 func (a *App) renderDailyView() string {

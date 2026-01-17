@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/samakintunde/bujo-cli/internal/id"
-	"github.com/samakintunde/bujo-cli/internal/models"
-	"github.com/samakintunde/bujo-cli/internal/parser"
-	"github.com/samakintunde/bujo-cli/internal/storage"
+	"github.com/samakintunde/bujo/internal/id"
+	"github.com/samakintunde/bujo/internal/models"
+	"github.com/samakintunde/bujo/internal/parser"
+	"github.com/samakintunde/bujo/internal/storage"
 )
 
 type Syncer struct {

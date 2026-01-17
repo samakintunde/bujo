@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/samakintunde/bujo-cli/internal/models"
+	"github.com/samakintunde/bujo/internal/models"
 )
 
 func TestParseRaw(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/samakintunde/bujo-cli/internal/models"
+	"github.com/samakintunde/bujo/internal/models"
 	_ "modernc.org/sqlite"
 )
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/samakintunde/bujo-cli/internal/id"
+	"github.com/samakintunde/bujo/internal/id"
 )
 
 type EntryType string
