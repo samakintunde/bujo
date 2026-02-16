@@ -80,6 +80,26 @@ CREATE TABLE IF NOT EXISTS entries (
 	if err != nil {
 		return err
 	}
+
+	_, err = tx.Exec(`
+CREATE TABLE IF NOT EXISTS tags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE
+);`)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(`
+CREATE TABLE IF NOT EXISTS entry_tags (
+    entry_id TEXT NOT NULL,
+    tag_id INTEGER NOT NULL,
+    PRIMARY KEY (entry_id, tag_id)
+);`)
+	if err != nil {
+		return err
+	}
+
 	_, err = tx.Exec(`
 CREATE TABLE IF NOT EXISTS files (
     path TEXT PRIMARY KEY,
@@ -94,6 +114,14 @@ CREATE TABLE IF NOT EXISTS files (
 		return err
 	}
 	_, err = tx.Exec("CREATE INDEX IF NOT EXISTS idx_parent ON entries(parent_id);")
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec("CREATE INDEX IF NOT EXISTS idx_entry_tags_tag_id ON entry_tags(tag_id);")
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec("CREATE INDEX IF NOT EXISTS idx_entry_tags_entry_id ON entry_tags(entry_id);")
 	if err != nil {
 		return err
 	}
@@ -134,6 +162,10 @@ func (s *DBStore) SyncEntries(path string, entries []models.Entry) error {
 	}
 	defer tx.Rollback()
 
+	if _, err := tx.Exec("DELETE FROM entry_tags WHERE entry_id IN (SELECT id FROM entries WHERE file_path = ?)", path); err != nil {
+		return err
+	}
+
 	if _, err := tx.Exec("DELETE FROM entries WHERE file_path = ?", path); err != nil {
 		return err
 	}
@@ -147,6 +179,24 @@ func (s *DBStore) SyncEntries(path string, entries []models.Entry) error {
 	}
 	defer stmt.Close()
 
+	insertTagStmt, err := tx.Prepare(`INSERT INTO tags (name) VALUES (?) ON CONFLICT(name) DO NOTHING`)
+	if err != nil {
+		return err
+	}
+	defer insertTagStmt.Close()
+
+	getTagIDStmt, err := tx.Prepare(`SELECT id FROM tags WHERE name = ?`)
+	if err != nil {
+		return err
+	}
+	defer getTagIDStmt.Close()
+
+	insertEntryTagStmt, err := tx.Prepare(`INSERT OR IGNORE INTO entry_tags (entry_id, tag_id) VALUES (?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer insertEntryTagStmt.Close()
+
 	for _, e := range entries {
 		if e.Type == models.EntryTypeIgnore {
 			continue
@@ -158,9 +208,32 @@ func (s *DBStore) SyncEntries(path string, entries []models.Entry) error {
 		if err != nil {
 			return err
 		}
+
+		for _, tag := range e.Tags {
+			if tag == "" {
+				continue
+			}
+
+			if _, err := insertTagStmt.Exec(tag); err != nil {
+				return err
+			}
+
+			var tagID int64
+			if err := getTagIDStmt.QueryRow(tag).Scan(&tagID); err != nil {
+				return err
+			}
+
+			if _, err := insertEntryTagStmt.Exec(e.ID, tagID); err != nil {
+				return err
+			}
+		}
 	}
 
 	if _, err := tx.Exec(`INSERT OR REPLACE INTO files (path, last_synced_at) VALUES (?, ?)`, path, time.Now()); err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec(`DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM entry_tags)`); err != nil {
 		return err
 	}
 
@@ -194,6 +267,32 @@ func (s *DBStore) GetEntriesByFile(path string) ([]models.Entry, error) {
 		entries = append(entries, e)
 	}
 	return entries, nil
+}
+
+func (s *DBStore) GetAllTags() ([]string, error) {
+	rows, err := s.db.Query(`
+		SELECT DISTINCT t.name
+		FROM tags t
+		JOIN entry_tags et ON et.tag_id = t.id
+		ORDER BY t.name ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	tags := make([]string, 0)
+	for rows.Next() {
+		var tag string
+		if err := rows.Scan(&tag); err != nil {
+			return nil, err
+		}
+		tags = append(tags, tag)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return tags, nil
 }
 
 func (s *DBStore) CountStaleTasks(daysBack int) (int, error) {

@@ -2,6 +2,7 @@ package service
 
 import (
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -203,6 +204,25 @@ func TestGetStaleTasks(t *testing.T) {
 
 	if len(tasks) != 1 {
 		t.Errorf("Expected 1 stale task, got %d", len(tasks))
+	}
+}
+
+func TestGetAllTags(t *testing.T) {
+	svc, _, _, cleanup := setupTestService(t)
+	defer cleanup()
+
+	now := time.Now()
+	_, _ = svc.AddEntry("Write report #Work", models.EntryTypeTask, now)
+	_, _ = svc.AddEntry("Notes for planning #deep_focus #WORK", models.EntryTypeNote, now)
+
+	tags, err := svc.GetAllTags()
+	if err != nil {
+		t.Fatalf("GetAllTags failed: %v", err)
+	}
+
+	want := []string{"deep_focus", "work"}
+	if !reflect.DeepEqual(tags, want) {
+		t.Errorf("GetAllTags = %#v, want %#v", tags, want)
 	}
 }
 

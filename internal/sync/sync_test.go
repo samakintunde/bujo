@@ -3,6 +3,7 @@ package sync
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -190,5 +191,30 @@ func TestSync_PreservesExistingIDs(t *testing.T) {
 
 	if entries[0].ID != "existing123" {
 		t.Errorf("entry ID = %q, want %q", entries[0].ID, "existing123")
+	}
+}
+
+func TestSync_ParsesAndStoresTags(t *testing.T) {
+	dir, syncer := setupSyncer(t)
+
+	mdPath := filepath.Join(dir, "2024-01-15.md")
+	content := `- [ ] First task #Work
+- [ ] Deep focus #deep_focus #WORK`
+	if err := os.WriteFile(mdPath, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := syncer.Sync(); err != nil {
+		t.Fatalf("Sync() error: %v", err)
+	}
+
+	tags, err := syncer.DB.GetAllTags()
+	if err != nil {
+		t.Fatalf("GetAllTags() error: %v", err)
+	}
+
+	want := []string{"deep_focus", "work"}
+	if !reflect.DeepEqual(tags, want) {
+		t.Errorf("GetAllTags() = %#v, want %#v", tags, want)
 	}
 }

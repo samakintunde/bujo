@@ -162,6 +162,14 @@ func (s *JournalService) CountStaleTasks(daysBack int) (int, error) {
 	return count, nil
 }
 
+func (s *JournalService) GetAllTags() ([]string, error) {
+	tags, err := s.db.GetAllTags()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tags: %w", err)
+	}
+	return tags, nil
+}
+
 func (s *JournalService) GetMigrationChain(entryID string) ([]models.Entry, error) {
 	chain, err := s.db.GetMigrationChain(entryID)
 	if err != nil {
