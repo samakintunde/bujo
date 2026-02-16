@@ -27,7 +27,7 @@ func (a *App) renderDailyView() string {
 		b.WriteString(InputErrorStyle.Render(fmt.Sprintf("Error: %v", a.err)))
 	}
 
-	return AppStyle.Render(b.String())
+	return a.renderApp(b.String())
 }
 
 func (a *App) renderHeader() string {
@@ -59,7 +59,7 @@ func (a *App) renderHeader() string {
 	}
 
 	header := fmt.Sprintf("%s  %s", dateDisplay, navHint)
-	return HeaderStyle.Render(header)
+	return HeaderStyle.Copy().Width(a.contentWidth()).Render(header)
 }
 
 func (a *App) renderEntryList() string {
@@ -148,7 +148,7 @@ func (a *App) renderStatusBar() string {
 		}
 	}
 
-	return StatusBarStyle.Render(strings.Join(keys, "  "))
+	return StatusBarStyle.Copy().Width(a.contentWidth()).Render(strings.Join(keys, "  "))
 }
 
 func (a *App) renderAddEntry() string {
@@ -169,7 +169,7 @@ func (a *App) renderAddEntry() string {
 	b.WriteString("\n")
 	b.WriteString(ModalHintStyle.Render("[Enter] Add  [Esc] Cancel"))
 
-	return AppStyle.Render(b.String())
+	return a.renderApp(b.String())
 }
 
 func (a *App) renderDatePicker() string {
@@ -188,7 +188,7 @@ func (a *App) renderDatePicker() string {
 	b.WriteString("\n\n")
 	b.WriteString(ModalHintStyle.Render("[Enter] Confirm  [Esc] Cancel"))
 
-	return AppStyle.Render(ModalStyle.Render(b.String()))
+	return a.renderApp(ModalStyle.Copy().Width(a.contentWidth()).Render(b.String()))
 }
 
 func (a *App) renderReviewScope() string {
@@ -211,12 +211,12 @@ func (a *App) renderReviewScope() string {
 	b.WriteString("\n")
 	b.WriteString(ModalHintStyle.Render("[1-4] Select  [Esc] Cancel"))
 
-	return AppStyle.Render(ModalStyle.Render(b.String()))
+	return a.renderApp(ModalStyle.Copy().Width(a.contentWidth()).Render(b.String()))
 }
 
 func (a *App) renderReviewTask() string {
 	if len(a.reviewTasks) == 0 || a.reviewCursor >= len(a.reviewTasks) {
-		return AppStyle.Render("No tasks to review.")
+		return a.renderApp("No tasks to review.")
 	}
 
 	task := a.reviewTasks[a.reviewCursor]
@@ -254,7 +254,7 @@ func (a *App) renderReviewTask() string {
 	progress := ReviewProgressStyle.Render(fmt.Sprintf("[%d/%d]", a.reviewCursor+1, len(a.reviewTasks)))
 	b.WriteString(progress)
 
-	return AppStyle.Render(ReviewCardStyle.Render(b.String()))
+	return a.renderApp(ReviewCardStyle.Copy().Width(a.contentWidth()).Render(b.String()))
 }
 
 func (a *App) isToday() bool {
@@ -282,7 +282,7 @@ func (a *App) renderReviewPrompt() string {
 
 	b.WriteString(ModalHintStyle.Render("[y] Yes  [n] No"))
 
-	return AppStyle.Render(ModalStyle.Render(b.String()))
+	return a.renderApp(ModalStyle.Copy().Width(a.contentWidth()).Render(b.String()))
 }
 
 func (a *App) renderTagFilter() string {
@@ -298,7 +298,7 @@ func (a *App) renderTagFilter() string {
 		b.WriteString(EmptyStateStyle.Render("No tags found yet. Add entries with #tags first."))
 		b.WriteString("\n\n")
 		b.WriteString(ModalHintStyle.Render("[Enter] Apply  [Esc] Cancel"))
-		return AppStyle.Render(ModalStyle.Render(b.String()))
+		return a.renderApp(ModalStyle.Copy().Width(a.contentWidth()).Render(b.String()))
 	}
 
 	for i, tag := range a.tagOptions {
@@ -323,7 +323,7 @@ func (a *App) renderTagFilter() string {
 	b.WriteString(ModalOptionStyle.Render(fmt.Sprintf("Selected: %d", selected)) + "\n")
 	b.WriteString(ModalHintStyle.Render("[j/k] Move  [Space] Toggle  [o] OR/AND  [Enter] Apply  [Esc] Cancel"))
 
-	return AppStyle.Render(ModalStyle.Render(b.String()))
+	return a.renderApp(ModalStyle.Copy().Width(a.contentWidth()).Render(b.String()))
 }
 
 func (a *App) tagFilterSummary(tags []string) string {
@@ -336,4 +336,23 @@ func (a *App) tagFilterSummary(tags []string) string {
 		tagged = append(tagged, "#"+tag)
 	}
 	return strings.Join(tagged, ", ")
+}
+
+func (a *App) renderApp(content string) string {
+	return AppStyle.Copy().Width(a.appWidth()).Render(content)
+}
+
+func (a *App) appWidth() int {
+	if a.width <= 0 {
+		return 80
+	}
+	return a.width
+}
+
+func (a *App) contentWidth() int {
+	width := a.appWidth() - AppStyle.GetHorizontalFrameSize()
+	if width < 20 {
+		return 20
+	}
+	return width
 }
