@@ -55,9 +55,11 @@ func TestStateTransitions(t *testing.T) {
 	}{
 		{"daily to add", StateDailyView, "a", StateAddEntry},
 		{"daily to datepicker", StateDailyView, "d", StateDatePicker},
+		{"daily to tag filter", StateDailyView, "f", StateTagFilter},
 		{"daily to review", StateDailyView, "r", StateReviewScope},
 		{"add cancel", StateAddEntry, "esc", StateDailyView},
 		{"datepicker cancel", StateDatePicker, "esc", StateDailyView},
+		{"tag filter cancel", StateTagFilter, "esc", StateDailyView},
 		{"review scope cancel", StateReviewScope, "esc", StateDailyView},
 	}
 
@@ -366,6 +368,94 @@ func TestStatusBarNoChainHintForRegularEntries(t *testing.T) {
 
 	if contains(statusBar, "history") {
 		t.Error("status bar should NOT show history hint for regular entries")
+	}
+}
+
+func TestTagFilterFlow_CommitAndClear(t *testing.T) {
+	app, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	today := time.Now()
+	_, _ = app.service.AddEntry("First #work", models.EntryTypeTask, today)
+	_, _ = app.service.AddEntry("Second #deep_focus #work", models.EntryTypeTask, today)
+
+	filterKey := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("f")}
+	newModel, cmd := app.Update(filterKey)
+	app = newModel.(*App)
+
+	if app.state != StateTagFilter {
+		t.Fatalf("state after f = %v, want StateTagFilter", app.state)
+	}
+	if cmd == nil {
+		t.Fatal("filter key should return load tags command")
+	}
+
+	msg := cmd()
+	newModel, _ = app.Update(msg)
+	app = newModel.(*App)
+
+	if len(app.tagOptions) != 2 {
+		t.Fatalf("tag options = %d, want 2", len(app.tagOptions))
+	}
+
+	spaceKey := tea.KeyMsg{Type: tea.KeySpace, Runes: []rune(" ")}
+	newModel, _ = app.Update(spaceKey) // select first tag
+	app = newModel.(*App)
+
+	downKey := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")}
+	newModel, _ = app.Update(downKey)
+	app = newModel.(*App)
+
+	newModel, _ = app.Update(spaceKey) // select second tag
+	app = newModel.(*App)
+
+	toggleModeKey := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("o")}
+	newModel, _ = app.Update(toggleModeKey)
+	app = newModel.(*App)
+
+	enterKey := tea.KeyMsg{Type: tea.KeyEnter}
+	newModel, cmd = app.Update(enterKey)
+	app = newModel.(*App)
+
+	if app.state != StateDailyView {
+		t.Fatalf("state after enter = %v, want StateDailyView", app.state)
+	}
+	if !app.activeTagMatchAll {
+		t.Fatal("activeTagMatchAll should be true after toggling to AND")
+	}
+	if len(app.activeTagFilter) != 2 {
+		t.Fatalf("activeTagFilter len = %d, want 2", len(app.activeTagFilter))
+	}
+	if cmd == nil {
+		t.Fatal("enter should trigger filtered load command")
+	}
+
+	clearKey := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")}
+	newModel, cmd = app.Update(clearKey)
+	app = newModel.(*App)
+
+	if len(app.activeTagFilter) != 0 {
+		t.Fatalf("activeTagFilter len after clear = %d, want 0", len(app.activeTagFilter))
+	}
+	if app.activeTagMatchAll {
+		t.Fatal("activeTagMatchAll should reset to false after clear")
+	}
+	if cmd == nil {
+		t.Fatal("clear should trigger entry reload")
+	}
+}
+
+func TestRenderHeader_ShowsActiveTagFilter(t *testing.T) {
+	app, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	app.activeTagFilter = []string{"deep_focus", "work"}
+	app.activeTagMatchAll = false
+
+	header := app.renderHeader()
+
+	if !contains(header, "Filter OR:") || !contains(header, "#deep_focus") || !contains(header, "#work") {
+		t.Errorf("header should show active filter summary, got: %s", header)
 	}
 }
 

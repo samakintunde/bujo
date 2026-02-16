@@ -65,8 +65,23 @@ func (a *App) loadEntries(targetID ...string) tea.Cmd {
 			tid = targetID[0]
 		}
 
-		entries, err := a.service.GetEntriesByDate(a.currentDate)
+		var (
+			entries []models.Entry
+			err     error
+		)
+		if len(a.activeTagFilter) > 0 {
+			entries, err = a.service.GetEntriesByDateAndTags(a.currentDate, a.activeTagFilter, a.activeTagMatchAll)
+		} else {
+			entries, err = a.service.GetEntriesByDate(a.currentDate)
+		}
 		return entriesLoadedMsg{entries: entries, err: err, targetID: tid}
+	}
+}
+
+func (a *App) loadTags() tea.Cmd {
+	return func() tea.Msg {
+		tags, err := a.service.GetAllTags()
+		return tagsLoadedMsg{tags: tags, err: err}
 	}
 }
 

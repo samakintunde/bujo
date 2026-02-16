@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -19,6 +20,7 @@ const (
 	StateDailyView AppState = iota
 	StateAddEntry
 	StateDatePicker
+	StateTagFilter
 	StateReviewScope
 	StateReviewTask
 	StateReviewPrompt
@@ -45,6 +47,13 @@ type App struct {
 
 	staleTaskCount int
 	message        string
+
+	activeTagFilter    []string
+	activeTagMatchAll  bool
+	tagOptions         []string
+	tagCursor          int
+	pendingTagFilter   map[string]bool
+	pendingTagMatchAll bool
 
 	migrationChain      []models.Entry
 	migrationChainIndex int
@@ -121,6 +130,11 @@ type chainLoadedMsg struct {
 	chain []models.Entry
 	index int
 	err   error
+}
+
+type tagsLoadedMsg struct {
+	tags []string
+	err  error
 }
 
 func (a *App) Init() tea.Cmd {
@@ -212,6 +226,28 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 
+	case tagsLoadedMsg:
+		if msg.err != nil {
+			a.err = msg.err
+			a.tagOptions = []string{}
+			return a, nil
+		}
+
+		a.tagOptions = msg.tags
+		valid := make(map[string]struct{}, len(msg.tags))
+		for _, tag := range msg.tags {
+			valid[tag] = struct{}{}
+		}
+		for tag := range a.pendingTagFilter {
+			if _, exists := valid[tag]; !exists {
+				delete(a.pendingTagFilter, tag)
+			}
+		}
+		if a.tagCursor >= len(a.tagOptions) {
+			a.tagCursor = max(0, len(a.tagOptions)-1)
+		}
+		return a, nil
+
 	case tea.KeyMsg:
 		return a.handleKeyMsg(msg)
 	}
@@ -233,6 +269,8 @@ func (a *App) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return a.handleAddEntryKeys(msg)
 	case StateDatePicker:
 		return a.handleDatePickerKeys(msg)
+	case StateTagFilter:
+		return a.handleTagFilterKeys(msg)
 	case StateReviewScope:
 		return a.handleReviewScopeKeys(msg)
 	case StateReviewTask:
@@ -314,6 +352,17 @@ func (a *App) handleDailyViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		a.state = StateReviewScope
 		a.reviewSummary = ReviewSummary{}
 
+	case key.Matches(msg, a.keys.Filter):
+		return a, a.openTagFilter()
+
+	case key.Matches(msg, a.keys.ClearFilter):
+		if len(a.activeTagFilter) > 0 {
+			a.activeTagFilter = nil
+			a.activeTagMatchAll = false
+			a.message = "Tag filter cleared"
+			return a, a.loadEntries()
+		}
+
 	case key.Matches(msg, a.keys.Migrate):
 		if !a.isToday() && len(a.entries) > 0 && a.cursor < len(a.entries) {
 			entry := a.entries[a.cursor]
@@ -348,6 +397,50 @@ func (a *App) handleDailyViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			entry := a.entries[a.cursor]
 			return a, a.loadMigrationChain(entry.ID, 1)
 		}
+	}
+
+	return a, nil
+}
+
+func (a *App) handleTagFilterKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, a.keys.Cancel):
+		a.state = StateDailyView
+		return a, nil
+
+	case key.Matches(msg, a.keys.Up):
+		if a.tagCursor > 0 {
+			a.tagCursor--
+		}
+
+	case key.Matches(msg, a.keys.Down):
+		if a.tagCursor < len(a.tagOptions)-1 {
+			a.tagCursor++
+		}
+
+	case key.Matches(msg, a.keys.Toggle):
+		if len(a.tagOptions) > 0 && a.tagCursor < len(a.tagOptions) {
+			tag := a.tagOptions[a.tagCursor]
+			if a.pendingTagFilter[tag] {
+				delete(a.pendingTagFilter, tag)
+			} else {
+				a.pendingTagFilter[tag] = true
+			}
+		}
+
+	case key.Matches(msg, a.keys.ToggleFilterMode):
+		a.pendingTagMatchAll = !a.pendingTagMatchAll
+
+	case key.Matches(msg, a.keys.Confirm):
+		a.activeTagFilter = a.pendingSelectedTags()
+		a.activeTagMatchAll = a.pendingTagMatchAll
+		a.state = StateDailyView
+		if len(a.activeTagFilter) == 0 {
+			a.message = "Tag filter cleared"
+		} else {
+			a.message = fmt.Sprintf("Applied %s tag filter (%d selected)", a.filterModeLabel(a.activeTagMatchAll), len(a.activeTagFilter))
+		}
+		return a, a.loadEntries()
 	}
 
 	return a, nil
@@ -507,6 +600,8 @@ func (a *App) View() string {
 		return a.renderAddEntry()
 	case StateDatePicker:
 		return a.renderDatePicker()
+	case StateTagFilter:
+		return a.renderTagFilter()
 	case StateReviewScope:
 		return a.renderReviewScope()
 	case StateReviewTask:
@@ -520,4 +615,42 @@ func (a *App) View() string {
 func (a *App) clearChainState() {
 	a.migrationChain = nil
 	a.migrationChainIndex = 0
+}
+
+func (a *App) openTagFilter() tea.Cmd {
+	a.state = StateTagFilter
+	a.tagCursor = 0
+	a.pendingTagMatchAll = a.activeTagMatchAll
+	a.pendingTagFilter = make(map[string]bool, len(a.activeTagFilter))
+	for _, tag := range a.activeTagFilter {
+		a.pendingTagFilter[tag] = true
+	}
+
+	return a.loadTags()
+}
+
+func (a *App) pendingSelectedTags() []string {
+	if len(a.pendingTagFilter) == 0 {
+		return nil
+	}
+
+	selected := make([]string, 0, len(a.pendingTagFilter))
+	for _, tag := range a.tagOptions {
+		if a.pendingTagFilter[tag] {
+			selected = append(selected, tag)
+		}
+	}
+	for tag := range a.pendingTagFilter {
+		if !slices.Contains(a.tagOptions, tag) {
+			selected = append(selected, tag)
+		}
+	}
+	return selected
+}
+
+func (a *App) filterModeLabel(matchAll bool) string {
+	if matchAll {
+		return "AND"
+	}
+	return "OR"
 }

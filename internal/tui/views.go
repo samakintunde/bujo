@@ -53,12 +53,20 @@ func (a *App) renderHeader() string {
 		navHint += "  " + ChainStyle.Render(chainInfo) + NavHintStyle.Render(" [[] []]")
 	}
 
+	if len(a.activeTagFilter) > 0 {
+		filterInfo := fmt.Sprintf("Filter %s: %s", a.filterModeLabel(a.activeTagMatchAll), a.tagFilterSummary(a.activeTagFilter))
+		navHint += "  " + ChainStyle.Render(filterInfo)
+	}
+
 	header := fmt.Sprintf("%s  %s", dateDisplay, navHint)
 	return HeaderStyle.Render(header)
 }
 
 func (a *App) renderEntryList() string {
 	if len(a.entries) == 0 {
+		if len(a.activeTagFilter) > 0 {
+			return EmptyStateStyle.Render("No entries match current tags. Press 'f' to adjust or 'c' to clear.")
+		}
 		return EmptyStateStyle.Render("No entries for this day. Press 'a' to add one.")
 	}
 
@@ -125,6 +133,8 @@ func (a *App) renderStatusBar() string {
 		KeyStyle.Render("space") + DescStyle.Render(" toggle"),
 		KeyStyle.Render("m") + DescStyle.Render("igrate"),
 		KeyStyle.Render("s") + DescStyle.Render("chedule"),
+		KeyStyle.Render("f") + DescStyle.Render("ilter"),
+		KeyStyle.Render("c") + DescStyle.Render("lear"),
 		KeyStyle.Render("r") + DescStyle.Render("eview"),
 		KeyStyle.Render("d") + DescStyle.Render("ate"),
 		KeyStyle.Render("q") + DescStyle.Render("uit"),
@@ -273,4 +283,57 @@ func (a *App) renderReviewPrompt() string {
 	b.WriteString(ModalHintStyle.Render("[y] Yes  [n] No"))
 
 	return AppStyle.Render(ModalStyle.Render(b.String()))
+}
+
+func (a *App) renderTagFilter() string {
+	var b strings.Builder
+
+	title := ModalTitleStyle.Render("Filter entries by tags")
+	b.WriteString(title + "\n\n")
+
+	modeLine := fmt.Sprintf("Mode: %s (press 'o' to toggle)", a.filterModeLabel(a.pendingTagMatchAll))
+	b.WriteString(ModalOptionStyle.Render(modeLine) + "\n\n")
+
+	if len(a.tagOptions) == 0 {
+		b.WriteString(EmptyStateStyle.Render("No tags found yet. Add entries with #tags first."))
+		b.WriteString("\n\n")
+		b.WriteString(ModalHintStyle.Render("[Enter] Apply  [Esc] Cancel"))
+		return AppStyle.Render(ModalStyle.Render(b.String()))
+	}
+
+	for i, tag := range a.tagOptions {
+		cursor := "  "
+		if i == a.tagCursor {
+			cursor = "> "
+		}
+		checkbox := "[ ]"
+		if a.pendingTagFilter[tag] {
+			checkbox = "[x]"
+		}
+		line := fmt.Sprintf("%s%s #%s", cursor, checkbox, tag)
+		if i == a.tagCursor {
+			b.WriteString(ModalOptionSelectedStyle.Render(line) + "\n")
+		} else {
+			b.WriteString(ModalOptionStyle.Render(line) + "\n")
+		}
+	}
+
+	b.WriteString("\n")
+	selected := len(a.pendingSelectedTags())
+	b.WriteString(ModalOptionStyle.Render(fmt.Sprintf("Selected: %d", selected)) + "\n")
+	b.WriteString(ModalHintStyle.Render("[j/k] Move  [Space] Toggle  [o] OR/AND  [Enter] Apply  [Esc] Cancel"))
+
+	return AppStyle.Render(ModalStyle.Render(b.String()))
+}
+
+func (a *App) tagFilterSummary(tags []string) string {
+	if len(tags) == 0 {
+		return ""
+	}
+
+	tagged := make([]string, 0, len(tags))
+	for _, tag := range tags {
+		tagged = append(tagged, "#"+tag)
+	}
+	return strings.Join(tagged, ", ")
 }
