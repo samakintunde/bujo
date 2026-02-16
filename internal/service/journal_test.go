@@ -190,6 +190,32 @@ func TestGetEntriesByDate(t *testing.T) {
 	}
 }
 
+func TestGetEntriesByDateAndTags(t *testing.T) {
+	svc, _, _, cleanup := setupTestService(t)
+	defer cleanup()
+
+	today := time.Now()
+	_, _ = svc.AddEntry("Task #work", models.EntryTypeTask, today)
+	_, _ = svc.AddEntry("Task #deep_focus #work", models.EntryTypeTask, today)
+	_, _ = svc.AddEntry("Task #health", models.EntryTypeTask, today)
+
+	orEntries, err := svc.GetEntriesByDateAndTags(today, []string{"WORK", "deep_focus"}, false)
+	if err != nil {
+		t.Fatalf("GetEntriesByDateAndTags OR failed: %v", err)
+	}
+	if len(orEntries) != 2 {
+		t.Errorf("OR filter entries = %d, want 2", len(orEntries))
+	}
+
+	andEntries, err := svc.GetEntriesByDateAndTags(today, []string{"work", "deep_focus"}, true)
+	if err != nil {
+		t.Fatalf("GetEntriesByDateAndTags AND failed: %v", err)
+	}
+	if len(andEntries) != 1 {
+		t.Errorf("AND filter entries = %d, want 1", len(andEntries))
+	}
+}
+
 func TestGetStaleTasks(t *testing.T) {
 	svc, _, _, cleanup := setupTestService(t)
 	defer cleanup()

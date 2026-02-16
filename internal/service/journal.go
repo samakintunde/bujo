@@ -146,6 +146,22 @@ func (s *JournalService) GetEntriesByDate(date time.Time) ([]models.Entry, error
 	return entries, nil
 }
 
+func (s *JournalService) GetEntriesByDateAndTags(date time.Time, tags []string, matchAll bool) ([]models.Entry, error) {
+	dateStr := date.Format(time.DateOnly)
+	path := s.fs.GetDayPath(dateStr)
+
+	if err := s.syncer.SyncFile(path); err != nil {
+		return nil, fmt.Errorf("failed to sync file: %w", err)
+	}
+
+	entries, err := s.db.GetEntriesByFileAndTags(path, tags, matchAll)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get filtered entries: %w", err)
+	}
+
+	return entries, nil
+}
+
 func (s *JournalService) GetStaleTasks(daysBack int) ([]models.Entry, error) {
 	tasks, err := s.db.GetStaleTasks(daysBack)
 	if err != nil {

@@ -279,6 +279,72 @@ func TestGetAllTags_ReturnsOnlyUsedTags(t *testing.T) {
 	}
 }
 
+func TestGetEntriesByFileAndTags(t *testing.T) {
+	dir := t.TempDir()
+	store, err := NewDBStore(dir)
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+	defer store.Close()
+
+	path := "/test/file.md"
+	entries := []models.Entry{
+		{
+			ID:         "task1",
+			Type:       models.EntryTypeTask,
+			Status:     models.EntryStatusOpen,
+			Content:    "Task #work",
+			Tags:       []string{"work"},
+			RawContent: "- [ ] Task #work",
+			FilePath:   path,
+			LineNumber: 1,
+		},
+		{
+			ID:         "task2",
+			Type:       models.EntryTypeTask,
+			Status:     models.EntryStatusOpen,
+			Content:    "Task #work #deep_focus",
+			Tags:       []string{"work", "deep_focus"},
+			RawContent: "- [ ] Task #work #deep_focus",
+			FilePath:   path,
+			LineNumber: 2,
+		},
+		{
+			ID:         "task3",
+			Type:       models.EntryTypeTask,
+			Status:     models.EntryStatusOpen,
+			Content:    "Task #health",
+			Tags:       []string{"health"},
+			RawContent: "- [ ] Task #health",
+			FilePath:   path,
+			LineNumber: 3,
+		},
+	}
+
+	if err := store.SyncEntries(path, entries); err != nil {
+		t.Fatalf("SyncEntries() error: %v", err)
+	}
+
+	orEntries, err := store.GetEntriesByFileAndTags(path, []string{"WORK", "deep_focus"}, false)
+	if err != nil {
+		t.Fatalf("GetEntriesByFileAndTags OR error: %v", err)
+	}
+	if len(orEntries) != 2 {
+		t.Errorf("OR entries = %d, want 2", len(orEntries))
+	}
+
+	andEntries, err := store.GetEntriesByFileAndTags(path, []string{"work", "deep_focus"}, true)
+	if err != nil {
+		t.Fatalf("GetEntriesByFileAndTags AND error: %v", err)
+	}
+	if len(andEntries) != 1 {
+		t.Errorf("AND entries = %d, want 1", len(andEntries))
+	}
+	if len(andEntries) == 1 && andEntries[0].ID != "task2" {
+		t.Errorf("AND entry ID = %q, want %q", andEntries[0].ID, "task2")
+	}
+}
+
 func TestGetFileLastSync(t *testing.T) {
 	dir := t.TempDir()
 	store, err := NewDBStore(dir)
