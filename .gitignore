@@ -9,4 +9,8 @@ bujo.exe
 .idea/
 .zed/
 
-SPEC.md
+.agents/
+
+# Local Go caches
+.gocache/
+.gomodcache/
