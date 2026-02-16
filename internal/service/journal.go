@@ -146,6 +146,22 @@ func (s *JournalService) GetEntriesByDate(date time.Time) ([]models.Entry, error
 	return entries, nil
 }
 
+func (s *JournalService) GetEntriesByDateAndTags(date time.Time, tags []string, matchAll bool) ([]models.Entry, error) {
+	dateStr := date.Format(time.DateOnly)
+	path := s.fs.GetDayPath(dateStr)
+
+	if err := s.syncer.SyncFile(path); err != nil {
+		return nil, fmt.Errorf("failed to sync file: %w", err)
+	}
+
+	entries, err := s.db.GetEntriesByFileAndTags(path, tags, matchAll)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get filtered entries: %w", err)
+	}
+
+	return entries, nil
+}
+
 func (s *JournalService) GetStaleTasks(daysBack int) ([]models.Entry, error) {
 	tasks, err := s.db.GetStaleTasks(daysBack)
 	if err != nil {
@@ -160,6 +176,14 @@ func (s *JournalService) CountStaleTasks(daysBack int) (int, error) {
 		return 0, fmt.Errorf("failed to count stale tasks: %w", err)
 	}
 	return count, nil
+}
+
+func (s *JournalService) GetAllTags() ([]string, error) {
+	tags, err := s.db.GetAllTags()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tags: %w", err)
+	}
+	return tags, nil
 }
 
 func (s *JournalService) GetMigrationChain(entryID string) ([]models.Entry, error) {

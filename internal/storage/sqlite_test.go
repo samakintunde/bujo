@@ -3,6 +3,7 @@ package storage
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -156,6 +157,191 @@ func TestSyncSkipsIgnoredEntries(t *testing.T) {
 
 	if len(got) != 2 {
 		t.Fatalf("GetEntriesByFile() returned %d entries, want 2 (ignored entry should be skipped)", len(got))
+	}
+}
+
+func TestSyncEntries_StoresTagsAndMappings(t *testing.T) {
+	dir := t.TempDir()
+	store, err := NewDBStore(dir)
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+	defer store.Close()
+
+	path := "/test/file.md"
+	entries := []models.Entry{
+		{
+			ID:         "task1",
+			Type:       models.EntryTypeTask,
+			Status:     models.EntryStatusOpen,
+			Content:    "Task #work #deep_focus",
+			Tags:       []string{"work", "deep_focus"},
+			RawContent: "- [ ] Task #work #deep_focus",
+			FilePath:   path,
+			LineNumber: 1,
+		},
+		{
+			ID:         "note1",
+			Type:       models.EntryTypeNote,
+			Status:     models.EntryStatusOpen,
+			Content:    "Note #work",
+			Tags:       []string{"work"},
+			RawContent: "- Note #work",
+			FilePath:   path,
+			LineNumber: 2,
+		},
+	}
+
+	if err := store.SyncEntries(path, entries); err != nil {
+		t.Fatalf("SyncEntries() error: %v", err)
+	}
+
+	var tagCount int
+	if err := store.db.QueryRow("SELECT COUNT(*) FROM tags").Scan(&tagCount); err != nil {
+		t.Fatalf("failed to count tags: %v", err)
+	}
+	if tagCount != 2 {
+		t.Errorf("tag row count = %d, want 2", tagCount)
+	}
+
+	var mappingCount int
+	if err := store.db.QueryRow("SELECT COUNT(*) FROM entry_tags").Scan(&mappingCount); err != nil {
+		t.Fatalf("failed to count entry_tags: %v", err)
+	}
+	if mappingCount != 3 {
+		t.Errorf("entry_tags row count = %d, want 3", mappingCount)
+	}
+
+	tags, err := store.GetAllTags()
+	if err != nil {
+		t.Fatalf("GetAllTags() error: %v", err)
+	}
+	want := []string{"deep_focus", "work"}
+	if !reflect.DeepEqual(tags, want) {
+		t.Errorf("GetAllTags() = %#v, want %#v", tags, want)
+	}
+}
+
+func TestGetAllTags_ReturnsOnlyUsedTags(t *testing.T) {
+	dir := t.TempDir()
+	store, err := NewDBStore(dir)
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+	defer store.Close()
+
+	path := "/test/file.md"
+	initialEntries := []models.Entry{
+		{
+			ID:         "task1",
+			Type:       models.EntryTypeTask,
+			Status:     models.EntryStatusOpen,
+			Content:    "Task #work",
+			Tags:       []string{"work"},
+			RawContent: "- [ ] Task #work",
+			FilePath:   path,
+			LineNumber: 1,
+		},
+	}
+	if err := store.SyncEntries(path, initialEntries); err != nil {
+		t.Fatalf("initial SyncEntries() error: %v", err)
+	}
+
+	updatedEntries := []models.Entry{
+		{
+			ID:         "task1",
+			Type:       models.EntryTypeTask,
+			Status:     models.EntryStatusOpen,
+			Content:    "Task without tags",
+			RawContent: "- [ ] Task without tags",
+			FilePath:   path,
+			LineNumber: 1,
+		},
+	}
+	if err := store.SyncEntries(path, updatedEntries); err != nil {
+		t.Fatalf("updated SyncEntries() error: %v", err)
+	}
+
+	tags, err := store.GetAllTags()
+	if err != nil {
+		t.Fatalf("GetAllTags() error: %v", err)
+	}
+	if len(tags) != 0 {
+		t.Errorf("GetAllTags() = %#v, want empty", tags)
+	}
+
+	var tagCount int
+	if err := store.db.QueryRow("SELECT COUNT(*) FROM tags").Scan(&tagCount); err != nil {
+		t.Fatalf("failed to count tags: %v", err)
+	}
+	if tagCount != 0 {
+		t.Errorf("tag row count = %d, want 0", tagCount)
+	}
+}
+
+func TestGetEntriesByFileAndTags(t *testing.T) {
+	dir := t.TempDir()
+	store, err := NewDBStore(dir)
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+	defer store.Close()
+
+	path := "/test/file.md"
+	entries := []models.Entry{
+		{
+			ID:         "task1",
+			Type:       models.EntryTypeTask,
+			Status:     models.EntryStatusOpen,
+			Content:    "Task #work",
+			Tags:       []string{"work"},
+			RawContent: "- [ ] Task #work",
+			FilePath:   path,
+			LineNumber: 1,
+		},
+		{
+			ID:         "task2",
+			Type:       models.EntryTypeTask,
+			Status:     models.EntryStatusOpen,
+			Content:    "Task #work #deep_focus",
+			Tags:       []string{"work", "deep_focus"},
+			RawContent: "- [ ] Task #work #deep_focus",
+			FilePath:   path,
+			LineNumber: 2,
+		},
+		{
+			ID:         "task3",
+			Type:       models.EntryTypeTask,
+			Status:     models.EntryStatusOpen,
+			Content:    "Task #health",
+			Tags:       []string{"health"},
+			RawContent: "- [ ] Task #health",
+			FilePath:   path,
+			LineNumber: 3,
+		},
+	}
+
+	if err := store.SyncEntries(path, entries); err != nil {
+		t.Fatalf("SyncEntries() error: %v", err)
+	}
+
+	orEntries, err := store.GetEntriesByFileAndTags(path, []string{"WORK", "deep_focus"}, false)
+	if err != nil {
+		t.Fatalf("GetEntriesByFileAndTags OR error: %v", err)
+	}
+	if len(orEntries) != 2 {
+		t.Errorf("OR entries = %d, want 2", len(orEntries))
+	}
+
+	andEntries, err := store.GetEntriesByFileAndTags(path, []string{"work", "deep_focus"}, true)
+	if err != nil {
+		t.Fatalf("GetEntriesByFileAndTags AND error: %v", err)
+	}
+	if len(andEntries) != 1 {
+		t.Errorf("AND entries = %d, want 1", len(andEntries))
+	}
+	if len(andEntries) == 1 && andEntries[0].ID != "task2" {
+		t.Errorf("AND entry ID = %q, want %q", andEntries[0].ID, "task2")
 	}
 }
 

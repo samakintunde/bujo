@@ -32,6 +32,7 @@ type Entry struct {
 	Type            EntryType
 	Status          EntryStatus
 	Content         string
+	Tags            []string
 	RawContent      string
 	FilePath        string
 	LineNumber      int

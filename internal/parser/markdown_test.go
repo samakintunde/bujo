@@ -3,6 +3,7 @@ package parser
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/samakintunde/bujo/internal/models"
@@ -22,6 +23,16 @@ func TestParseRaw(t *testing.T) {
 				Type:    models.EntryTypeTask,
 				Status:  models.EntryStatusOpen,
 				Content: "Buy milk",
+			},
+		},
+		{
+			name: "task with single tag",
+			line: "- [ ] Buy milk #Work",
+			want: models.Entry{
+				Type:    models.EntryTypeTask,
+				Status:  models.EntryStatusOpen,
+				Content: "Buy milk #Work",
+				Tags:    []string{"work"},
 			},
 		},
 		{
@@ -89,6 +100,16 @@ func TestParseRaw(t *testing.T) {
 				Content: "Just a note",
 			},
 		},
+		{
+			name: "note with multiple deduplicated tags",
+			line: "- Capture #work #WORK, and #deep_focus.",
+			want: models.Entry{
+				Type:    models.EntryTypeNote,
+				Status:  models.EntryStatusOpen,
+				Content: "Capture #work #WORK, and #deep_focus.",
+				Tags:    []string{"work", "deep_focus"},
+			},
+		},
 		// Ignored lines
 		{
 			name: "heading is ignored",
@@ -120,6 +141,17 @@ func TestParseRaw(t *testing.T) {
 				Status:  models.EntryStatusOpen,
 				Content: "Task",
 				ID:      "abc123",
+			},
+		},
+		{
+			name: "extracts tags with metadata present",
+			line: `- [ ] Task #Work <!-- {"id":"abc123"} -->`,
+			want: models.Entry{
+				Type:    models.EntryTypeTask,
+				Status:  models.EntryStatusOpen,
+				Content: "Task #Work",
+				ID:      "abc123",
+				Tags:    []string{"work"},
 			},
 		},
 		{
@@ -175,6 +207,9 @@ func TestParseRaw(t *testing.T) {
 			}
 			if got.Content != tt.want.Content {
 				t.Errorf("Content = %q, want %q", got.Content, tt.want.Content)
+			}
+			if !reflect.DeepEqual(got.Tags, tt.want.Tags) {
+				t.Errorf("Tags = %#v, want %#v", got.Tags, tt.want.Tags)
 			}
 			if got.ID != tt.want.ID {
 				t.Errorf("ID = %q, want %q", got.ID, tt.want.ID)

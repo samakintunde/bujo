@@ -23,6 +23,9 @@ var noteRegex = regexp.MustCompile(`^-\s+(.*)`)
 // Matches hidden comment: <!-- {...} -->
 var metaRegex = regexp.MustCompile(`<!--\s*(\{.*\})\s*-->`)
 
+// Matches tags in content: #work, #deep_focus
+var tagRegex = regexp.MustCompile(`(?i)(?:^|[^[:alnum:]_])#([[:alnum:]_]+)`)
+
 // Parse reads a markdown file and returns valid entries.
 // It filters out EntryTypeIgnore lines.
 // Use this for reading/indexing data (e.g. DB import).
@@ -107,6 +110,7 @@ func parseLine(line string) models.Entry {
 	if match := taskRegex.FindStringSubmatch(line); len(match) > 1 {
 		entry.Type = models.EntryTypeTask
 		entry.Content = strings.TrimSpace(match[2])
+		entry.Tags = extractTags(entry.Content)
 
 		switch match[1] {
 		case " ":
@@ -123,13 +127,42 @@ func parseLine(line string) models.Entry {
 	} else if match := eventRegex.FindStringSubmatch(line); len(match) > 1 {
 		entry.Type = models.EntryTypeEvent
 		entry.Content = strings.TrimSpace(match[1])
+		entry.Tags = extractTags(entry.Content)
 		entry.Status = models.EntryStatusOpen
 	} else if match := noteRegex.FindStringSubmatch(line); len(match) > 1 {
 		entry.Type = models.EntryTypeNote
 		entry.Content = strings.TrimSpace(match[1])
+		entry.Tags = extractTags(entry.Content)
 		entry.Status = models.EntryStatusOpen
 	} else {
 		entry.Type = models.EntryTypeIgnore
 	}
 	return entry
+}
+
+func extractTags(content string) []string {
+	matches := tagRegex.FindAllStringSubmatch(content, -1)
+	if len(matches) == 0 {
+		return nil
+	}
+
+	tags := make([]string, 0, len(matches))
+	seen := make(map[string]struct{}, len(matches))
+
+	for _, match := range matches {
+		if len(match) < 2 {
+			continue
+		}
+		tag := strings.ToLower(strings.TrimSpace(match[1]))
+		if tag == "" {
+			continue
+		}
+		if _, exists := seen[tag]; exists {
+			continue
+		}
+		seen[tag] = struct{}{}
+		tags = append(tags, tag)
+	}
+
+	return tags
 }

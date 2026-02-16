@@ -17,13 +17,16 @@ type KeyMap struct {
 	GoTo    key.Binding
 
 	// Actions
-	Toggle    key.Binding
-	Add       key.Binding
-	Migrate   key.Binding
-	Schedule  key.Binding
-	Review    key.Binding
-	ChainPrev key.Binding
-	ChainNext key.Binding
+	Toggle           key.Binding
+	Add              key.Binding
+	Migrate          key.Binding
+	Schedule         key.Binding
+	Review           key.Binding
+	Filter           key.Binding
+	ClearFilter      key.Binding
+	ToggleFilterMode key.Binding
+	ChainPrev        key.Binding
+	ChainNext        key.Binding
 
 	// General
 	Confirm key.Binding
@@ -85,6 +88,18 @@ var DefaultKeyMap = KeyMap{
 	Review: key.NewBinding(
 		key.WithKeys("r"),
 		key.WithHelp("r", "review"),
+	),
+	Filter: key.NewBinding(
+		key.WithKeys("f"),
+		key.WithHelp("f", "filter tags"),
+	),
+	ClearFilter: key.NewBinding(
+		key.WithKeys("c"),
+		key.WithHelp("c", "clear filter"),
+	),
+	ToggleFilterMode: key.NewBinding(
+		key.WithKeys("o"),
+		key.WithHelp("o", "toggle OR/AND"),
 	),
 	ChainPrev: key.NewBinding(
 		key.WithKeys("["),

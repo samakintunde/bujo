@@ -2,8 +2,10 @@ package storage
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/samakintunde/bujo/internal/models"
@@ -80,6 +82,26 @@ CREATE TABLE IF NOT EXISTS entries (
 	if err != nil {
 		return err
 	}
+
+	_, err = tx.Exec(`
+CREATE TABLE IF NOT EXISTS tags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE
+);`)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(`
+CREATE TABLE IF NOT EXISTS entry_tags (
+    entry_id TEXT NOT NULL,
+    tag_id INTEGER NOT NULL,
+    PRIMARY KEY (entry_id, tag_id)
+);`)
+	if err != nil {
+		return err
+	}
+
 	_, err = tx.Exec(`
 CREATE TABLE IF NOT EXISTS files (
     path TEXT PRIMARY KEY,
@@ -94,6 +116,14 @@ CREATE TABLE IF NOT EXISTS files (
 		return err
 	}
 	_, err = tx.Exec("CREATE INDEX IF NOT EXISTS idx_parent ON entries(parent_id);")
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec("CREATE INDEX IF NOT EXISTS idx_entry_tags_tag_id ON entry_tags(tag_id);")
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec("CREATE INDEX IF NOT EXISTS idx_entry_tags_entry_id ON entry_tags(entry_id);")
 	if err != nil {
 		return err
 	}
@@ -134,6 +164,10 @@ func (s *DBStore) SyncEntries(path string, entries []models.Entry) error {
 	}
 	defer tx.Rollback()
 
+	if _, err := tx.Exec("DELETE FROM entry_tags WHERE entry_id IN (SELECT id FROM entries WHERE file_path = ?)", path); err != nil {
+		return err
+	}
+
 	if _, err := tx.Exec("DELETE FROM entries WHERE file_path = ?", path); err != nil {
 		return err
 	}
@@ -147,6 +181,24 @@ func (s *DBStore) SyncEntries(path string, entries []models.Entry) error {
 	}
 	defer stmt.Close()
 
+	insertTagStmt, err := tx.Prepare(`INSERT INTO tags (name) VALUES (?) ON CONFLICT(name) DO NOTHING`)
+	if err != nil {
+		return err
+	}
+	defer insertTagStmt.Close()
+
+	getTagIDStmt, err := tx.Prepare(`SELECT id FROM tags WHERE name = ?`)
+	if err != nil {
+		return err
+	}
+	defer getTagIDStmt.Close()
+
+	insertEntryTagStmt, err := tx.Prepare(`INSERT OR IGNORE INTO entry_tags (entry_id, tag_id) VALUES (?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer insertEntryTagStmt.Close()
+
 	for _, e := range entries {
 		if e.Type == models.EntryTypeIgnore {
 			continue
@@ -158,9 +210,32 @@ func (s *DBStore) SyncEntries(path string, entries []models.Entry) error {
 		if err != nil {
 			return err
 		}
+
+		for _, tag := range e.Tags {
+			if tag == "" {
+				continue
+			}
+
+			if _, err := insertTagStmt.Exec(tag); err != nil {
+				return err
+			}
+
+			var tagID int64
+			if err := getTagIDStmt.QueryRow(tag).Scan(&tagID); err != nil {
+				return err
+			}
+
+			if _, err := insertEntryTagStmt.Exec(e.ID, tagID); err != nil {
+				return err
+			}
+		}
 	}
 
 	if _, err := tx.Exec(`INSERT OR REPLACE INTO files (path, last_synced_at) VALUES (?, ?)`, path, time.Now()); err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec(`DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM entry_tags)`); err != nil {
 		return err
 	}
 
@@ -168,19 +243,90 @@ func (s *DBStore) SyncEntries(path string, entries []models.Entry) error {
 }
 
 func (s *DBStore) GetEntriesByFile(path string) ([]models.Entry, error) {
-	query := `
-        SELECT id, type, status, content, raw_content, file_path, line_number,
-               migration_count, reschedule_count, parent_id, created_at, updated_at
-        FROM entries
+	rows, err := s.db.Query(baseEntriesSelectQuery+`
+        FROM entries e
         WHERE file_path = ?
-        ORDER BY line_number ASC`
-
-	rows, err := s.db.Query(query, path)
+        ORDER BY line_number ASC`, path)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
+	return scanEntries(rows)
+}
+
+func (s *DBStore) GetEntriesByFileAndTags(path string, tags []string, matchAll bool) ([]models.Entry, error) {
+	normalizedTags := normalizeTags(tags)
+	if len(normalizedTags) == 0 {
+		return s.GetEntriesByFile(path)
+	}
+
+	placeholders := strings.TrimRight(strings.Repeat("?,", len(normalizedTags)), ",")
+	havingClause := "HAVING COUNT(DISTINCT t.name) >= 1"
+	args := make([]any, 0, len(normalizedTags)+2)
+	for _, tag := range normalizedTags {
+		args = append(args, tag)
+	}
+	if matchAll {
+		havingClause = "HAVING COUNT(DISTINCT t.name) = ?"
+		args = append(args, len(normalizedTags))
+	}
+	args = append(args, path)
+
+	query := fmt.Sprintf(`
+		%s
+		FROM entries e
+		JOIN (
+			SELECT et.entry_id
+			FROM entry_tags et
+			JOIN tags t ON t.id = et.tag_id
+			WHERE t.name IN (%s)
+			GROUP BY et.entry_id
+			%s
+		) matched ON matched.entry_id = e.id
+		WHERE e.file_path = ?
+		ORDER BY e.line_number ASC`, baseEntriesSelectQuery, placeholders, havingClause)
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return scanEntries(rows)
+}
+
+func (s *DBStore) GetAllTags() ([]string, error) {
+	rows, err := s.db.Query(`
+		SELECT DISTINCT t.name
+		FROM tags t
+		JOIN entry_tags et ON et.tag_id = t.id
+		ORDER BY t.name ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	tags := make([]string, 0)
+	for rows.Next() {
+		var tag string
+		if err := rows.Scan(&tag); err != nil {
+			return nil, err
+		}
+		tags = append(tags, tag)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return tags, nil
+}
+
+const baseEntriesSelectQuery = `
+        SELECT e.id, e.type, e.status, e.content, e.raw_content, e.file_path, e.line_number,
+               e.migration_count, e.reschedule_count, e.parent_id, e.created_at, e.updated_at`
+
+func scanEntries(rows *sql.Rows) ([]models.Entry, error) {
 	var entries []models.Entry
 	for rows.Next() {
 		var e models.Entry
@@ -193,7 +339,33 @@ func (s *DBStore) GetEntriesByFile(path string) ([]models.Entry, error) {
 		}
 		entries = append(entries, e)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return entries, nil
+}
+
+func normalizeTags(tags []string) []string {
+	if len(tags) == 0 {
+		return nil
+	}
+
+	normalized := make([]string, 0, len(tags))
+	seen := make(map[string]struct{}, len(tags))
+
+	for _, tag := range tags {
+		cleaned := strings.ToLower(strings.TrimSpace(tag))
+		if cleaned == "" {
+			continue
+		}
+		if _, exists := seen[cleaned]; exists {
+			continue
+		}
+		seen[cleaned] = struct{}{}
+		normalized = append(normalized, cleaned)
+	}
+
+	return normalized
 }
 
 func (s *DBStore) CountStaleTasks(daysBack int) (int, error) {
